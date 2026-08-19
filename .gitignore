@@ -73,5 +73,5 @@ htmlcov/
 *.tar.xz
 *.tar.zst
 
-CompleteCode.txt
+CompleteCode/
 ```
