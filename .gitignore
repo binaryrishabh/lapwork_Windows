@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 target/
+release/
 
 # TypeScript
 *.tsbuildinfo
@@ -72,5 +73,5 @@ htmlcov/
 *.tar.xz
 *.tar.zst
 
-./CompleteCode.txt
+CompleteCode.txt
 ```
