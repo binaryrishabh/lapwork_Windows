@@ -1,16 +1,22 @@
 import React, { useState, useRef } from 'react';
 
-function HelpTooltip({ text }) {
+interface HelpTooltipProps {
+  text: string;
+}
+
+function HelpTooltip({ text }: HelpTooltipProps) {
   const [visible, setVisible] = useState(false);
-  const timeoutRef = useRef(null);
+  const timeoutRef = useRef<number | null>(null);
 
   const show = () => {
-    clearTimeout(timeoutRef.current);
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+    }
     setVisible(true);
   };
 
   const hide = () => {
-    timeoutRef.current = setTimeout(() => setVisible(false), 150);
+    timeoutRef.current = window.setTimeout(() => setVisible(false), 150);
   };
 
   return (

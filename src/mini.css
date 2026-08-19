@@ -33,6 +33,37 @@ body {
   transition: background 0.3s ease;
 }
 
+/* ===== Mini Window Logo ===== */
+.mini-logo {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  vertical-align: -2px;
+  margin-right: 5px;
+  object-fit: cover;            /* keeps the logo crisp inside the tiny square */
+  object-position: center;
+  user-select: none;
+  pointer-events: none;         /* never captures clicks */
+  -webkit-user-drag: none;      /* can't be dragged out of the window */
+  transition: opacity 0.3s ease, transform 0.2s ease;
+}
+
+/* Align logo + brand name perfectly on one line */
+.mini-title {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Gentle pop when hovering the header */
+.mini-header:hover .mini-logo {
+  transform: scale(1.15);
+}
+
+/* Dim the logo with the rest of the chrome when the window is unfocused */
+.mini-container.unfocused .mini-logo {
+  opacity: 0.5;
+}
+
 /* ===== Draggable Header ===== */
 .mini-header {
   display: flex;

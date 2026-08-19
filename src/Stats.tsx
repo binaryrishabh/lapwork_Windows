@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import StatsCards from './components/StatsCards';
-import TimeChart from './components/TimeChart';
-import DistractionBreakdown from './components/DistractionBreakdown';
+import StatsCards from './Components/StatsCards';
+import TimeChart from './Components/TimeChart';
+import DistractionBreakdown from './Components/DistractionBreakdown';
 
 // Helper: get local date string YYYY-MM-DD
 function getLocalDateStr(date) {

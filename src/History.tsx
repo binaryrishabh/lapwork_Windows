@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import ContributionGraph from './components/ContributionGraph';
+import ContributionGraph from './Components/ContributionGraph';
 
 // ===== Helpers =====
 const getLocalToday = () => {
@@ -54,6 +54,15 @@ const formatClockTime = (isoString, offsetMs) => {
 };
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+interface DayData {
+  sessions: any[];
+  totalMs: number;
+}
+
+type MonthData = Record<string, DayData>;          // dateStr -> DayData
+type YearData = Record<number, MonthData>;         // monthIndex -> MonthData
+type ArchiveTree = Record<number, YearData>;       // year -> YearData
 
 // ===== SessionCard Component (reused in Today + Archive day views) =====
 function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, onDeleteConfirm, onDeleteCancel }) {
@@ -158,19 +167,15 @@ function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, o
 
 // ===== Main History Component =====
 function History() {
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // View: 'today' | 'archive' | 'past-year' | 'month' | 'day'
-  const [view, setView] = useState('today');
-  const [selectedYear, setSelectedYear] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [pastYearView, setPastYearView] = useState(null);
-
-  // Session card state
-  const [expandedSession, setExpandedSession] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [view, setView] = useState<string>('today');
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [pastYearView, setPastYearView] = useState<number | null>(null);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const todayStr = getLocalToday();
   const currentYear = new Date().getFullYear();
@@ -213,17 +218,19 @@ function History() {
   };
 
   // ===== Build Archive Tree (excludes today) =====
-  const archiveTree = useMemo(() => {
-    const tree = {};
-    sessions.forEach(s => {
+  const archiveTree = useMemo<ArchiveTree>(() => {
+    const tree: ArchiveTree = {};
+    sessions.forEach((s: any) => {
       const dateStr = (s.date || '').split('T')[0];
-      if (!dateStr || dateStr === todayStr) return;
+      if (!dateStr || dateStr === todayStr) {
+        return;
+      }
 
       const parts = dateStr.split('-');
       const year = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
 
+      
       if (!tree[year]) tree[year] = {};
       if (!tree[year][month]) tree[year][month] = {};
       if (!tree[year][month][dateStr]) {
@@ -240,7 +247,7 @@ function History() {
   const todaySessions = useMemo(() => {
     return sessions
       .filter(s => (s.date || '').split('T')[0] === todayStr)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sessions, todayStr]);
 
   // ===== Year Summaries =====
@@ -284,35 +291,32 @@ function History() {
 
   // ===== Month Summary =====
   const monthSummary = useMemo(() => {
-    if (selectedYear === null || selectedMonth === null) return null;
-    const monthData = archiveTree[selectedYear]?.[selectedMonth];
-    if (!monthData) return { days: [], totalMs: 0, totalSessions: 0, isCurrentMonth: false };
+  if (selectedYear === null || selectedMonth === null) return null;
+  const monthData = archiveTree[selectedYear]?.[selectedMonth];
+  if (!monthData) {
+    return { days: [] as (DayData & { dateStr: string })[], totalMs: 0, totalSessions: 0, isCurrentMonth: false };
+  }
+  const isCurrentYear = selectedYear === currentYear;
+  const isCurrentMonth = isCurrentYear && selectedMonth === currentMonthIndex;
+  const days = Object.entries(monthData)
+    .map(([dateStr, data]) => ({ dateStr, ...data }));
+  if (isCurrentMonth) {
+    days.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+  } else {
+    days.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  }
+  const totalMs = days.reduce((sum, d) => sum + d.totalMs, 0);
+  const totalSessions = days.reduce((sum, d) => sum + d.sessions.length, 0);
+  return { days, totalMs, totalSessions, isCurrentMonth };
+}, [archiveTree, selectedYear, selectedMonth, currentYear, currentMonthIndex]);
 
-    const isCurrentYear = selectedYear === currentYear;
-    const isCurrentMonth = isCurrentYear && selectedMonth === currentMonthIndex;
-
-    let days = Object.entries(monthData)
-      .map(([dateStr, data]) => ({ dateStr, ...data }));
-
-    // Current month: today→1st, others: 1st→31st
-    if (isCurrentMonth) {
-      days.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
-    } else {
-      days.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-    }
-
-    const totalMs = days.reduce((sum, d) => sum + d.totalMs, 0);
-    const totalSessions = days.reduce((sum, d) => sum + d.sessions.length, 0);
-
-    return { days, totalMs, totalSessions, isCurrentMonth };
-  }, [archiveTree, selectedYear, selectedMonth, currentYear, currentMonthIndex]);
-
-  // ===== Selected Day Sessions =====
-  const selectedDaySessions = useMemo(() => {
-    if (!selectedDate || selectedYear === null || selectedMonth === null) return [];
-    const dayData = archiveTree[selectedYear]?.[selectedMonth]?.[selectedDate];
-    return dayData ? dayData.sessions.sort((a, b) => new Date(a.date) - new Date(b.date)) : [];
-  }, [archiveTree, selectedYear, selectedMonth, selectedDate]);
+const selectedDaySessions = useMemo(() => {
+  if (!selectedDate || selectedYear === null || selectedMonth === null) return [] as any[];
+  const dayData = archiveTree[selectedYear]?.[selectedMonth]?.[selectedDate];
+  return dayData
+    ? dayData.sessions.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    : [];
+}, [archiveTree, selectedYear, selectedMonth, selectedDate]);
 
   // ===== Navigation =====
   const goToArchive = () => { setView('archive'); setExpandedSession(null); setDeleteConfirm(null); };

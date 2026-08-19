@@ -20,6 +20,27 @@ body {
 }
 
 /* ===== App Layout ===== */
+/* ===== Main Header Logo ===== */
+.app-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  vertical-align: -4px;
+  margin-right: 10px;
+  object-fit: cover;
+  object-position: center;
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  box-shadow: 0 0 14px rgba(100, 181, 246, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.app-header h1:hover .app-logo {
+  transform: scale(1.08);
+  box-shadow: 0 0 18px rgba(100, 181, 246, 0.3);
+}
+
 .app-container {
   display: flex;
   flex-direction: column;

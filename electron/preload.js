@@ -1,137 +1,71 @@
-const { contextBridge, ipcRenderer } = require('electron');
-
-contextBridge.exposeInMainWorld('electronAPI', {
-  getAppVersion: () => '1.0.0',
+// electron/preload.ts
+var import_electron = require("electron");
+import_electron.contextBridge.exposeInMainWorld("electronAPI", {
+  getAppVersion: () => "1.0.0",
   getPlatform: () => process.platform,
-
-  // Global shortcuts
   onGlobalShortcut: (callback) => {
-    ipcRenderer.on('global-shortcut', (event, key) => callback(key));
+    import_electron.ipcRenderer.on("global-shortcut", (_event, key) => callback(key));
   },
   removeGlobalShortcutListener: () => {
-    ipcRenderer.removeAllListeners('global-shortcut');
+    import_electron.ipcRenderer.removeAllListeners("global-shortcut");
   },
-
-  // Database
-  saveSession: (session) => ipcRenderer.invoke('db:save-session', session),
-  getSessions: () => ipcRenderer.invoke('db:get-sessions'),
-  deleteSession: (id) => ipcRenderer.invoke('db:delete-session', id),
-  getSessionsByDate: (date) => ipcRenderer.invoke('db:get-sessions-by-date', date),
-
-  // Tray state (takes running + optional elapsedMs)
-    updateRunningState: (running, elapsedMs, isDistracted, distractionName, distractionElapsed) => ipcRenderer.invoke('update-running-state', running, elapsedMs, isDistracted, distractionName, distractionElapsed),
-
-  // Close confirmation
+  saveSession: (session) => import_electron.ipcRenderer.invoke("db:save-session", session),
+  getSessions: () => import_electron.ipcRenderer.invoke("db:get-sessions"),
+  deleteSession: (id) => import_electron.ipcRenderer.invoke("db:delete-session", id),
+  getSessionsByDate: (date) => import_electron.ipcRenderer.invoke("db:get-sessions-by-date", date),
+  updateRunningState: (running, elapsedMs, isDistracted, distractionName, distractionElapsed) => import_electron.ipcRenderer.invoke("update-running-state", running, elapsedMs, isDistracted, distractionName, distractionElapsed),
   onBeforeClose: (callback) => {
-    ipcRenderer.on('before-close', () => callback());
+    import_electron.ipcRenderer.on("before-close", () => callback());
   },
-
   removeBeforeCloseListener: () => {
-    ipcRenderer.removeAllListeners('before-close');
+    import_electron.ipcRenderer.removeAllListeners("before-close");
   },
-
-  confirmQuit: () => {
-    return ipcRenderer.invoke('confirm-quit');
-  },
-
-  getIsRunning: () => {
-    return ipcRenderer.invoke('get-is-running');
-  },
-
-  // Main window: respond when mini window requests current stopwatch state
+  confirmQuit: () => import_electron.ipcRenderer.invoke("confirm-quit"),
+  getIsRunning: () => import_electron.ipcRenderer.invoke("get-is-running"),
   onGetStopwatchState: (callback) => {
-    ipcRenderer.on('get-stopwatch-state', () => callback());
+    import_electron.ipcRenderer.on("get-stopwatch-state", () => callback());
   },
-
   removeGetStopwatchStateListener: () => {
-    ipcRenderer.removeAllListeners('get-stopwatch-state');
+    import_electron.ipcRenderer.removeAllListeners("get-stopwatch-state");
   },
-
-  // Mini window: receive stopwatch state updates from main process
   onStopwatchStateUpdate: (callback) => {
-    ipcRenderer.on('stopwatch-state-update', (event, data) => callback(data));
+    import_electron.ipcRenderer.on("stopwatch-state-update", (_event, data) => callback(data));
   },
-  
   removeStopwatchStateListener: () => {
-    ipcRenderer.removeAllListeners('stopwatch-state-update');
+    import_electron.ipcRenderer.removeAllListeners("stopwatch-state-update");
   },
-
-  // Mini window: restore main window (close mini, show main)
-  restoreMainWindow: () => {
-    ipcRenderer.invoke('restore-main-window');
-  },
-
-  // Mini window: send stopwatch command to main window (toggle, lap, flag)
-  sendStopwatchCommand: (command) => {
-    ipcRenderer.send('mini-command', command);
-  },
-
-  // Mini window: minimize to tray (close mini, main stays hidden)
-  minimizeToTray: () => {
-    ipcRenderer.invoke('minimize-to-tray');
-  },
-
-  // Mini window: send current elapsed time to main window before restoring
-  sendElapsedToMain: (elapsedMs) => {
-    ipcRenderer.send('sync-elapsed-to-main', elapsedMs);
-  },
-
-  // Main window: receive synced elapsed time from mini window
+  restoreMainWindow: () => import_electron.ipcRenderer.invoke("restore-main-window"),
+  sendStopwatchCommand: (command) => import_electron.ipcRenderer.send("mini-command", command),
+  minimizeToTray: () => import_electron.ipcRenderer.invoke("minimize-to-tray"),
+  sendElapsedToMain: (elapsedMs) => import_electron.ipcRenderer.send("sync-elapsed-to-main", elapsedMs),
   onSyncElapsedFromMini: (callback) => {
-    ipcRenderer.on('sync-elapsed-from-mini', (event, elapsedMs) => callback(elapsedMs));
+    import_electron.ipcRenderer.on("sync-elapsed-from-mini", (_event, elapsedMs) => callback(elapsedMs));
   },
-
   removeSyncElapsedFromMiniListener: () => {
-    ipcRenderer.removeAllListeners('sync-elapsed-from-mini');
+    import_electron.ipcRenderer.removeAllListeners("sync-elapsed-from-mini");
   },
-
-  // Mini window: restore main window and trigger close confirmation
-  restoreMainWindowAndClose: () => {
-    ipcRenderer.invoke('restore-main-window-and-close');
-  },
-
-  resizeMiniWindow: (width, height) => {
-    ipcRenderer.invoke('resize-mini-window', width, height);
-  },
-
-  // Mini window: send distraction name + stop command together
-  sendDistractionWithName: (name) => {
-    ipcRenderer.send('distraction-stop-with-name', name);
-  },
-
-  // Main window: receive distraction name + auto-stop
+  restoreMainWindowAndClose: () => import_electron.ipcRenderer.invoke("restore-main-window-and-close"),
+  resizeMiniWindow: (width, height) => import_electron.ipcRenderer.invoke("resize-mini-window", width, height),
+  sendDistractionWithName: (name) => import_electron.ipcRenderer.send("distraction-stop-with-name", name),
   onDistractionStopWithName: (callback) => {
-    ipcRenderer.on('distraction-stop-with-name', (event, name) => callback(name));
+    import_electron.ipcRenderer.on("distraction-stop-with-name", (_event, name) => callback(name));
   },
-
   removeDistractionStopWithNameListener: () => {
-    ipcRenderer.removeAllListeners('distraction-stop-with-name');
+    import_electron.ipcRenderer.removeAllListeners("distraction-stop-with-name");
   },
-
-  // Mini window: focus/blur translucency
   onWindowBlur: (callback) => {
-    ipcRenderer.on('window-blur', () => callback());
+    import_electron.ipcRenderer.on("window-blur", () => callback());
   },
   removeWindowBlurListener: () => {
-    ipcRenderer.removeAllListeners('window-blur');
+    import_electron.ipcRenderer.removeAllListeners("window-blur");
   },
   onWindowFocus: (callback) => {
-    ipcRenderer.on('window-focus', () => callback());
+    import_electron.ipcRenderer.on("window-focus", () => callback());
   },
   removeWindowFocusListener: () => {
-    ipcRenderer.removeAllListeners('window-focus');
+    import_electron.ipcRenderer.removeAllListeners("window-focus");
   },
-
-  focusMiniWindow: () => {
-    ipcRenderer.send('focus-mini-window');
-  },
-  
-  setMiniMaxSize: (width, height) => {
-    ipcRenderer.invoke('set-mini-max-size', width, height);
-  },
-
-  setMiniMinSize: (width, height) => {
-    ipcRenderer.invoke('set-mini-min-size', width, height);
-  },
-  
+  focusMiniWindow: () => import_electron.ipcRenderer.send("focus-mini-window"),
+  setMiniMaxSize: (width, height) => import_electron.ipcRenderer.invoke("set-mini-max-size", width, height),
+  setMiniMinSize: (width, height) => import_electron.ipcRenderer.invoke("set-mini-min-size", width, height)
 });

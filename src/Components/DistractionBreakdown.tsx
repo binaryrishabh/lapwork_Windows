@@ -2,17 +2,51 @@ import React, { useMemo, useState } from 'react';
 import { formatMs } from '../utils/formatTime';
 import HelpTooltip from './HelpTooltip';
 
-function DistractionBreakdown({ sessions }) {
-  const [rangeType, setRangeType] = useState('daily'); // 'daily' or 'weekly'
+// ===== TypeScript Interfaces =====
+interface Distraction {
+  name?: string;
+  durationMs?: number;
+  duration_ms?: number;
+}
+
+interface Session {
+  date?: string;
+  totalMs?: number;
+  total_ms?: number;
+  distractions?: Distraction[];
+}
+
+interface DistractionBreakdownProps {
+  sessions: Session[];
+}
+
+interface Category {
+  name: string;
+  totalMs: number;
+  count: number;
+}
+
+interface Segment extends Category {
+  percent: number;
+  color: string;
+  offset: number;
+}
+
+function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
+  const [rangeType, setRangeType] = useState<'daily' | 'weekly'>('daily');
   const now = new Date();
-  const isMonday = now.getDay() === 1;  
+  const isMonday = now.getDay() === 1;
+
+  // ✅ Extract class names here before TypeScript narrows the type in the if-blocks
+  const dailyBtnClass = `chart-toggle-btn ${rangeType === 'daily' ? 'active' : ''}`;
+  const weeklyBtnClass = `chart-toggle-btn ${rangeType === 'weekly' ? 'active' : ''}`;
 
   const breakdown = useMemo(() => {
     if (!sessions || sessions.length === 0) return null;
 
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-    let filteredSessions = [];
+    let filteredSessions: Session[] = [];
 
     if (rangeType === 'daily') {
       // Today only
@@ -35,7 +69,7 @@ function DistractionBreakdown({ sessions }) {
     }
 
     // Aggregate distractions by name
-    const distractionMap = {};
+    const distractionMap: Record<string, Category> = {};
     let totalProductiveMs = 0;
     let totalDistractedMs = 0;
 
@@ -69,7 +103,7 @@ function DistractionBreakdown({ sessions }) {
       totalTime,
       hasData: categories.length > 0,
     };
-  }, [sessions, rangeType, now]);
+  }, [sessions, rangeType]);
 
   if (rangeType === 'weekly' && isMonday) {
     return (
@@ -78,13 +112,13 @@ function DistractionBreakdown({ sessions }) {
           <h3 className="chart-title">Distraction Breakdown</h3>
           <div className="chart-toggle-group">
             <button
-              className={`chart-toggle-btn ${rangeType === 'daily' ? 'active' : ''}`}
+              className={dailyBtnClass}
               onClick={() => setRangeType('daily')}
             >
               Today
             </button>
             <button
-              className={`chart-toggle-btn ${rangeType === 'weekly' ? 'active' : ''}`}
+              className={weeklyBtnClass}
               onClick={() => setRangeType('weekly')}
             >
               This Week
@@ -138,15 +172,15 @@ function DistractionBreakdown({ sessions }) {
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
 
-  const sliceColors = [
+  const sliceColors: string[] = [
     '#ff9800', '#f44336', '#e91e63', '#9c27b0',
     '#ff5722', '#ff7043', '#ef5350', '#ec407a',
   ];
 
   let cumulativePercent = 0;
-  const segments = categories.map((cat, i) => {
+  const segments: Segment[] = categories.map((cat, i) => {
     const percent = totalTime > 0 ? cat.totalMs / totalTime : 0;
-    const segment = {
+    const segment: Segment = {
       ...cat,
       percent,
       color: sliceColors[i % sliceColors.length],
@@ -171,7 +205,7 @@ function DistractionBreakdown({ sessions }) {
       <div className="chart-header">
         <h3 className="chart-title">
           Distraction Breakdown
-          <HelpTooltip text={`Shows how your ${rangeType === 'daily' ? 'today\'s' : 'this week\'s'} time is split between productive work and each distraction category.`} />
+          <HelpTooltip text={`Shows how your ${rangeType === 'daily' ? "today's" : "this week's"} time is split between productive work and each distraction category.`} />
         </h3>
         <div className="chart-toggle-group">
           <button

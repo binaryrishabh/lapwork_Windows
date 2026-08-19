@@ -1,18 +1,49 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import logo from "./assets/logo.png";
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import Stopwatch from './Stopwatch';
 import History from './History';
 import Stats from './Stats';
 import './App.css';
-import ToastContainer from './components/Toast';
-import { showToast } from './components/Toast';
+import ToastContainer from './Components/Toast';
+import { showToast } from './Components/Toast';
 
 {/* Uncomment this while in development for devPanel */}
-import DevPanel from './components/DevPanel';
+import DevPanel from './Components/DevPanel';
+
+interface Lap {
+  id: string;
+  number: number;
+  time: number;
+  split: number;
+  note: string;
+  flagged: boolean;
+  timestamp: string;
+}
+
+interface Distraction {
+  id: string;
+  name: string;
+  startMs: number;
+  durationMs: number;
+  note: string;
+  timestamp: string;
+}
+
+interface Session {
+  id: string;
+  name: string;
+  date: string;
+  totalMs: number;
+  laps: Lap[];
+  note: string;
+  distractions: Distraction[];
+  createdAt: string;
+}
 
 // Helper: returns ISO string in local time (not UTC)
-function getLocalISOString() {
+function getLocalISOString(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -27,52 +58,67 @@ function getLocalISOString() {
 function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [laps, setLaps] = useState([]);
+  const [laps, setLaps] = useState<Lap[]>([]);
   const [currentNote, setCurrentNote] = useState('');
-  const [sessionStart, setSessionStart] = useState(null);
+  const [sessionStart, setSessionStart] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   // Distraction state
   const [isDistracted, setIsDistracted] = useState(false);
   const [distractionElapsed, setDistractionElapsed] = useState(0);
-  const [distractions, setDistractions] = useState([]);
+  const [distractions, setDistractions] = useState<Distraction[]>([]);
   const [currentDistractionName, setCurrentDistractionName] = useState('');
   const [showCloseDialog, setShowCloseDialog] = useState(false);
 
-  const startTimeRef = useRef(null);
+  const startTimeRef = useRef<number | null>(null);
   const accumulatedRef = useRef(0);
-  const animationFrameRef = useRef(null);
+  const animationFrameRef = useRef<number | null>(null);
   const isRunningRef = useRef(false);
 
-  const distractionStartRef = useRef(null);
+  const distractionStartRef = useRef<number | null>(null);
   const distractionAccumulatedRef = useRef(0);
-  const distractionFrameRef = useRef(null);
+  const distractionFrameRef = useRef<number | null>(null);
   const currentDistractionStartMs = useRef(0);
 
   const elapsedMsRef = useRef(0);
   const isRunningRefForClose = useRef(false);
 
+  // ===== Throttled state sync to Electron (prevents IPC flood crashes) =====
+  const lastSyncTimeRef = useRef(0);
+  const lastSyncStateRef = useRef({ running: false, distracted: false, name: '' });
+
   useEffect(() => {
-    const realElapsed = startTimeRef.current 
+    const stateChanged =
+      lastSyncStateRef.current.running !== isRunning ||
+      lastSyncStateRef.current.distracted !== isDistracted ||
+      lastSyncStateRef.current.name !== currentDistractionName;
+
+    const now = Date.now();
+    // ✅ Instant on state changes (stop/start/distraction), otherwise max every 250ms
+    if (!stateChanged && now - lastSyncTimeRef.current < 250) return;
+
+    lastSyncTimeRef.current = now;
+    lastSyncStateRef.current = { running: isRunning, distracted: isDistracted, name: currentDistractionName };
+
+    const realElapsed = startTimeRef.current
       ? accumulatedRef.current + (performance.now() - startTimeRef.current)
       : accumulatedRef.current;
-    
+
     const realDistractionElapsed = distractionStartRef.current
       ? distractionAccumulatedRef.current + (performance.now() - distractionStartRef.current)
       : distractionAccumulatedRef.current;
-    
+
     if (window.electronAPI) {
       window.electronAPI.updateRunningState(
-        isRunning, 
-        Math.round(realElapsed), 
-        isDistracted, 
+        isRunning,
+        Math.round(realElapsed) || 0,
+        isDistracted,
         currentDistractionName,
-        Math.round(realDistractionElapsed)
+        Math.round(realDistractionElapsed) || 0
       );
     }
-  }, [isRunning, elapsedMs, isDistracted, distractionElapsed]);
-
+  }, [isRunning, elapsedMs, isDistracted, distractionElapsed, currentDistractionName]);
 
   // Handle close confirmation
   useEffect(() => {
@@ -158,9 +204,18 @@ function App() {
     }
   }, [isDistracted, isRunning, elapsedMs, updateDistractionDisplay]);
 
-  const stopDistraction = useCallback((distractionNameOverride) => {
+  const stopDistraction = useCallback((distractionNameOverride?: string) => {
     if (isDistracted) {
+      // ✅ SAFETY GUARD: Prevents NaN crash if refs desync
+      if (distractionStartRef.current === null) {
+        setIsDistracted(false);
+        setDistractionElapsed(0);
+        distractionAccumulatedRef.current = 0;
+        return;
+      }
+
       distractionAccumulatedRef.current += performance.now() - distractionStartRef.current;
+      // ... rest of the function remains the same
       const totalDistractionMs = distractionAccumulatedRef.current;
       
       const nameToUse = distractionNameOverride || currentDistractionName || 'Distraction';
@@ -184,7 +239,7 @@ function App() {
     }
   }, [isDistracted, currentDistractionName, elapsedMs, updateDistractionDisplay]);
 
-  const toggleDistraction = useCallback((distractionNameOverride) => {
+  const toggleDistraction = useCallback((distractionNameOverride?: string) => {
     if (isDistracted) stopDistraction(distractionNameOverride);
     else startDistraction();
   }, [isDistracted, startDistraction, stopDistraction]);
@@ -357,10 +412,10 @@ function App() {
       if (window.electronAPI) {
         window.electronAPI.updateRunningState(
           isRunning, 
-          Math.round(realElapsed), 
+          Math.round(realElapsed) || 0, // ✅ FIX: Fallback to 0 if NaN
           isDistracted, 
           currentDistractionName,
-          Math.round(realDistractionElapsed)
+          Math.round(realDistractionElapsed) || 0 // ✅ FIX: Fallback to 0 if NaN
         );
       }
     };
@@ -442,7 +497,9 @@ function App() {
 
   return (
     <div className="app-container">
-      <header className="app-header compact"><h1>DailyTracker</h1></header>
+      <header className="app-header compact">
+        <h1><img src={logo} alt="lapwork" className="app-logo" />lapwork</h1>
+      </header>
       <nav className="nav-tabs">
         <NavLink to="/stopwatch" className={({ isActive }) => isActive ? 'nav-tab active' : 'nav-tab'}>⏱ Stopwatch</NavLink>
         <NavLink to="/history" className={({ isActive }) => isActive ? 'nav-tab active' : 'nav-tab'}>📋 History</NavLink>

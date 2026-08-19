@@ -1,3 +1,4 @@
+import logo from "../assets/logo.png";
 import React, { useState, useEffect, useRef } from 'react';
 
 function MiniStopwatch() {
@@ -13,15 +14,17 @@ function MiniStopwatch() {
   const [isFocused, setIsFocused] = useState(true);
 
   const accumulatedRef = useRef(0);
-  const startTimeRef = useRef(null);
-  const animFrameRef = useRef(null);
-  const warningTimeoutRef = useRef(null);
-  const saveMessageTimeoutRef = useRef(null);
+
   const isDistractedMiniRef = useRef(false);
   const isRunningRef = useRef(false);
-  const distractionStartRefMini = useRef(null);
+
   const distractionAccumulatedMiniRef = useRef(0);
-  const distractionFrameRefMini = useRef(null);
+  const startTimeRef = useRef<number | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const warningTimeoutRef = useRef<number | null>(null);
+  const saveMessageTimeoutRef = useRef<number | null>(null);
+  const distractionStartRefMini = useRef<number | null>(null);
+  const distractionFrameRefMini = useRef<number | null>(null);
 
   const formatTime = (ms) => {
     const hours = Math.floor(ms / 3600000);
@@ -167,8 +170,8 @@ function MiniStopwatch() {
             }
           } else {
             setShowDistractionInput(true);
-            setTimeout(() => {
-              const input = document.querySelector('.mini-distraction-input');
+            window.setTimeout(() => {
+              const input = document.querySelector('.mini-distraction-input') as HTMLInputElement | null;
               if (input) input.focus();
             }, 100);
           }
@@ -192,19 +195,19 @@ function MiniStopwatch() {
 
             if (currentElapsed < 30000) {
               if (warningTimeoutRef.current) {
-                clearTimeout(warningTimeoutRef.current);
+                window.clearTimeout(warningTimeoutRef.current);
               }
               setWarning('Track at least 30 seconds before saving');
-              warningTimeoutRef.current = setTimeout(() => {
+              warningTimeoutRef.current = window.setTimeout(() => {
                 setWarning('');
                 warningTimeoutRef.current = null;
               }, 2500);
             } else if (window.electronAPI) {
               if (saveMessageTimeoutRef.current) {
-                clearTimeout(saveMessageTimeoutRef.current);
+                window.clearTimeout(saveMessageTimeoutRef.current);
               }
               setSaveMessage('Session saved!');
-              saveMessageTimeoutRef.current = setTimeout(() => {
+              saveMessageTimeoutRef.current = window.setTimeout(() => {
                 setSaveMessage('');
                 saveMessageTimeoutRef.current = null;
               }, 2000);
@@ -295,7 +298,7 @@ function MiniStopwatch() {
 
     if (window.electronAPI) {
       window.electronAPI.sendElapsedToMain(Math.round(currentElapsed));
-      setTimeout(() => {
+      window.setTimeout(() => {
         window.electronAPI.restoreMainWindow();
       }, 50);
     }
@@ -321,7 +324,7 @@ function MiniStopwatch() {
 
       if (window.electronAPI) {
         window.electronAPI.sendElapsedToMain(Math.round(currentElapsed));
-        setTimeout(() => {
+        window.setTimeout(() => {
           window.electronAPI.restoreMainWindowAndClose();
         }, 50);
       }
@@ -344,7 +347,7 @@ function MiniStopwatch() {
 
   // Submit distraction name
   const submitDistraction = () => {
-    const input = document.querySelector('.mini-distraction-input');
+    const input = document.querySelector('.mini-distraction-input') as HTMLInputElement | null;
     const name = input?.value?.trim() || 'Distraction';
 
     if (window.electronAPI) {
@@ -360,7 +363,7 @@ function MiniStopwatch() {
       {/* Draggable header — hidden when collapsed */}
       {!collapsed && (
         <div className="mini-header">
-          <span className="mini-title">⏱ DailyTracker</span>
+          <span className="mini-title"><img src={logo} alt="" className="mini-logo" />lapwork</span>
           <div className="mini-header-actions">
             <button className="mini-btn-icon mini-btn-collapse" onClick={() => setCollapsed(true)} title="Collapse (↓)">
               <svg width="10" height="6" viewBox="0 0 10 6">
@@ -391,7 +394,7 @@ function MiniStopwatch() {
 
       {/* Collapsed strip */}
       {collapsed && (
-        <div className="mini-collapsed-strip" style={{ WebkitAppRegion: 'drag' }} onMouseDown={() => { if (window.electronAPI) window.electronAPI.focusMiniWindow(); }}>
+        <div className="mini-collapsed-strip" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} onMouseDown={() => { if (window.electronAPI) window.electronAPI.focusMiniWindow(); }}>
           <div className="mini-collapsed-left">
             <span className="mini-collapsed-dot-mini" style={{ backgroundColor: isRunning ? '#4caf50' : '#444', boxShadow: isRunning ? '0 0 6px rgba(76,175,80,0.5)' : 'none' }} />
             {isDistractedMini && (
@@ -399,7 +402,7 @@ function MiniStopwatch() {
             )}
             <span className="mini-collapsed-time">{formatTime(elapsedMs)}</span>
           </div>
-          <button className="mini-btn-icon" onClick={() => setCollapsed(false)} title="Expand (↑)" style={{ width: 28, height: 28, WebkitAppRegion: 'no-drag' }}>
+          <button className="mini-btn-icon" onClick={() => setCollapsed(false)} title="Expand (↑)" style={{ width: 28, height: 28, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <svg width="10" height="6" viewBox="0 0 10 6" style={{ transform: 'rotate(180deg)' }}>
               <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>

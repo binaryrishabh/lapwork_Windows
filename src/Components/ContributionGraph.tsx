@@ -2,7 +2,28 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { formatMs } from '../utils/formatTime';
 import HelpTooltip from './HelpTooltip';
 
-const getColor = (hours, maxHours) => {
+// ===== TypeScript Interfaces =====
+interface Session {
+  date?: string;
+  totalMs?: number;
+  total_ms?: number;
+}
+
+interface ContributionGraphProps {
+  sessions: Session[];
+}
+
+interface DayData {
+  date: string;
+  ms: number;
+  hours: number;
+  dayOfWeek: number;
+  month: number;
+  year: number;
+  isToday: boolean;
+}
+
+const getColor = (hours: number, maxHours: number): string => {
   if (hours === 0) return '#1a1a1a';
   const ratio = hours / maxHours;
   if (ratio < 0.25) return '#0e4429';
@@ -11,24 +32,19 @@ const getColor = (hours, maxHours) => {
   return '#39d353';
 };
 
-const getLocalDateStr = (date) => {
+const getLocalDateStr = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-function ContributionGraph({ sessions }) {
-  const scrollRef = useRef(null);
+function ContributionGraph({ sessions }: ContributionGraphProps) {
+  // ✅ Typed ref
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to today on mount (Removed duplicate useEffect)
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
-    }
-  }, []);
-
-  // Auto-scroll to today on mount
-useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
     }
@@ -39,7 +55,7 @@ useEffect(() => {
     const wrapper = scrollRef.current;
     if (!wrapper) return;
 
-    const handleWheel = (e) => {
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       wrapper.scrollLeft += e.deltaY;
     };
@@ -48,9 +64,9 @@ useEffect(() => {
     return () => wrapper.removeEventListener('wheel', handleWheel);
   }, []);
 
-  
-    const { columns, monthLabels, maxHours, totalHours, totalMs, totalDays, currentStreak, maxStreak, svgWidth } = useMemo(() => {
-    const sessionsMap = {};
+  const { columns, monthLabels, maxHours, totalHours, totalMs, totalDays, currentStreak, maxStreak, svgWidth } = useMemo(() => {
+    // ✅ Explicitly type the map so Object.values() returns number[] instead of unknown[]
+    const sessionsMap: Record<string, number> = {};
     sessions.forEach((session) => {
       const dateStr = session.date ? session.date.split('T')[0] : null;
       if (!dateStr) return;
@@ -68,7 +84,7 @@ useEffect(() => {
     const startDate = new Date(endSunday);
     startDate.setDate(endSunday.getDate() - 52 * 7);
 
-    const allDays = [];
+    const allDays: DayData[] = [];
     const d = new Date(startDate);
     while (d <= today) {
       const dateStr = getLocalDateStr(d);
@@ -86,7 +102,7 @@ useEffect(() => {
     }
 
     // Group into columns by month
-    const columns = [];
+    const columns: (DayData | null)[][] = [];
     let i = 0;
     while (i < allDays.length) {
       const day = allDays[i];
@@ -94,7 +110,7 @@ useEffect(() => {
       const colYear = day.year;
       const colStartDow = day.dayOfWeek;
 
-      const column = new Array(7).fill(null);
+      const column: (DayData | null)[] = new Array(7).fill(null);
       for (let row = colStartDow; row < 7; row++) {
         if (i >= allDays.length) break;
         const nextDay = allDays[i];
@@ -108,10 +124,10 @@ useEffect(() => {
 
     // Build month labels with start/end columns
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthRanges = [];
+    const monthRanges: { startCol: number; endCol: number; label: string }[] = [];
     let currentMY = '';
-    let rangeStart = 0;
 
+    
     columns.forEach((col, idx) => {
       const day = col.find(d => d !== null);
       if (!day) return;
@@ -138,18 +154,16 @@ useEffect(() => {
     const maxMs = Math.max(1, ...allMsVals, 1000);
     const totalMs = allMsVals.reduce((s, v) => s + v, 0);
     const totalDaysCount = allMsVals.length;
-
+    
     // Streak: count consecutive days backwards from yesterday
-    // If today has activity, it counts as day 1; otherwise start from yesterday
+
     let streakCount = 0;
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
     const todayStr2 = getLocalDateStr(todayDate);
-    
-    // Check if today has activity
+
     const hasToday = sessionsMap[todayStr2] && sessionsMap[todayStr2] > 0;
-    
-    // Start counting from today if active, otherwise from yesterday
+
     const checkDate = new Date();
     checkDate.setHours(0, 0, 0, 0);
     if (!hasToday) {
@@ -166,7 +180,7 @@ useEffect(() => {
       }
     }
 
-        // Max streak: find the longest consecutive streak in the data
+    // Max streak: find the longest consecutive streak in the data
     let maxStreak = 0;
     let currentRun = 0;
     const allDates = Object.keys(sessionsMap).sort();
@@ -177,7 +191,8 @@ useEffect(() => {
       } else {
         const prevDate = new Date(allDates[i - 1] + 'T00:00:00');
         const currDate = new Date(allDates[i] + 'T00:00:00');
-        const diffDays = (currDate - prevDate) / (1000 * 60 * 60 * 24);
+        // ✅ FIX: Use .getTime() to subtract Dates as numbers
+        const diffDays = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
         
         if (diffDays === 1) {
           currentRun++;
@@ -212,7 +227,8 @@ useEffect(() => {
     };
   }, [sessions]);
 
-  const [hoveredCell, setHoveredCell] = React.useState(null);
+  // ✅ Typed state
+  const [hoveredCell, setHoveredCell] = React.useState<DayData | null>(null);
 
   const cellSize = 14;
   const cellGap = 3;
@@ -222,7 +238,7 @@ useEffect(() => {
   const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
   // Calculate X position: column * cellWidth + gaps before this column
-  const getX = (colIndex) => {
+  const getX = (colIndex: number) => {
     let gapsBefore = 0;
     for (let j = 1; j < columns.length; j++) {
       if (j > colIndex) break;
@@ -237,7 +253,7 @@ useEffect(() => {
     return colIndex * totalCell + gapsBefore * monthGap + 28;
   };
 
-  const formatDateDisplay = (dateStr) => {
+  const formatDateDisplay = (dateStr: string) => {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };

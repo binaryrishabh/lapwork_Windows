@@ -1,5 +1,49 @@
 import React from 'react';
 
+// ===== TypeScript Interfaces =====
+interface Lap {
+  id: string;
+  number: number;
+  time: number;
+  split: number;
+  note: string;
+  flagged: boolean;
+  timestamp: string;
+}
+
+interface Distraction {
+  id: string;
+  name: string;
+  startMs: number;
+  durationMs: number;
+  note: string;
+  timestamp: string;
+}
+
+interface StopwatchProps {
+  isRunning: boolean;
+  elapsedMs: number;
+  laps: Lap[];
+  currentNote: string;
+  sessionName: string;
+  setCurrentNote: (note: string) => void;
+  setSessionName: (name: string) => void;
+  toggleStopwatch: () => void;
+  addLap: (flagged?: boolean) => void;
+  toggleFlag: (id: string) => void;
+  updateLapNote: (id: string, note: string) => void;
+  resetStopwatch: () => void;
+  saveSession: () => void;
+  isDistracted: boolean;
+  distractionElapsed: number;
+  distractions: Distraction[];
+  currentDistractionName: string;
+  setCurrentDistractionName: (name: string) => void;
+  toggleDistraction: (nameOverride?: string) => void;
+  removeDistraction: (id: string) => void;
+  productiveMs: number;
+}
+
 function Stopwatch({
   isRunning, elapsedMs, laps, currentNote, sessionName,
   setCurrentNote, setSessionName,
@@ -8,21 +52,22 @@ function Stopwatch({
   setCurrentDistractionName,
   toggleDistraction, removeDistraction,
   productiveMs,
-}) {
-  const formatTime = (ms) => {
+}: StopwatchProps) {
+  
+  const formatTime = (ms: number) => {
     const hours = Math.floor(ms / 3600000);
     const minutes = Math.floor((ms % 3600000) / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  const formatShort = (ms) => {
+  const formatShort = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  const formatLapTime = (ms) => {
+  const formatLapTime = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -61,7 +106,7 @@ function Stopwatch({
           </div>
           <button
             className={`btn btn-distraction ${isDistracted ? 'btn-distraction-stop' : 'btn-distraction-start'}`}
-            onClick={toggleDistraction}
+            onClick={() => toggleDistraction()} // ✅ FIX: Wrapped in arrow function to prevent passing MouseEvent as distraction name
             disabled={!isRunning}
           >
             {isDistracted ? '⏹ Stop' : '▶ Start Distraction'}
@@ -107,12 +152,12 @@ function Stopwatch({
 
       {/* Controls */}
       <div className="stopwatch-controls">
-        <button className={`btn btn-primary ${isRunning ? 'btn-stop' : 'btn-start'}`} onClick={toggleStopwatch}>
+        <button className={`btn btn-primary ${isRunning ? 'btn-stop' : 'btn-start'}`} onClick={() => toggleStopwatch()}>
           {isRunning ? '⏸ Stop' : '▶ Start'}
         </button>
         <button className="btn btn-secondary" onClick={() => addLap(false)} disabled={!isRunning}>🏁 Lap</button>
-        <button className="btn btn-danger" onClick={resetStopwatch} disabled={elapsedMs === 0 && laps.length === 0}>↺ Reset</button>
-                <button className="btn btn-success" onClick={saveSession} disabled={elapsedMs < 30000 && laps.length === 0}>💾 Save</button>
+        <button className="btn btn-danger" onClick={() => resetStopwatch()} disabled={elapsedMs === 0 && laps.length === 0}>↺ Reset</button>
+        <button className="btn btn-success" onClick={() => saveSession()} disabled={elapsedMs < 30000 && laps.length === 0}>💾 Save</button>
       </div>
 
       {/* Note */}
