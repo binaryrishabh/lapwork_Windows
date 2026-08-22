@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ContributionGraph from './Components/ContributionGraph';
+import { IconTrash, IconChevronDown, IconChevronUp, IconChevronLeft, IconArchive, IconInbox, IconFlag, IconCalendar } from './Components/icons';
 
-// ===== Helpers =====
 const getLocalToday = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -60,11 +60,10 @@ interface DayData {
   totalMs: number;
 }
 
-type MonthData = Record<string, DayData>;          // dateStr -> DayData
-type YearData = Record<number, MonthData>;         // monthIndex -> MonthData
-type ArchiveTree = Record<number, YearData>;       // year -> YearData
+type MonthData = Record<string, DayData>;
+type YearData = Record<number, MonthData>;
+type ArchiveTree = Record<number, YearData>;
 
-// ===== SessionCard Component (reused in Today + Archive day views) =====
 function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, onDeleteConfirm, onDeleteCancel }) {
   return (
     <div className={`session-card ${isExpanded ? 'expanded' : ''}`}>
@@ -89,12 +88,13 @@ function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, o
               onDeleteConfirm(session.id);
             }}
           >
-            🗑
+            <IconTrash size={14} />
           </button>
-          <span className="expand-icon">{isExpanded ? '▲' : '▼'}</span>
+          <span className="expand-icon">
+            {isExpanded ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
+          </span>
         </div>
       </div>
-
       {deleteConfirm === session.id && (
         <div className="delete-confirm">
           <span>Delete this session?</span>
@@ -102,7 +102,6 @@ function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, o
           <button className="btn-confirm-no" onClick={onDeleteCancel}>No</button>
         </div>
       )}
-
       {isExpanded && (
         <div className="session-details">
           {session.note && (
@@ -111,10 +110,12 @@ function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, o
               <div className="detail-content">{session.note}</div>
             </div>
           )}
-
           {session.distractions && session.distractions.length > 0 && (
             <div className="detail-section">
-              <div className="detail-label">🚩 Distractions ({session.distractions.length})</div>
+              <div className="detail-label">
+                <IconFlag size={12} style={{ color: 'var(--accent-warm)' }} />
+                Distractions ({session.distractions.length})
+              </div>
               <div className="detail-distractions">
                 {[...session.distractions]
                   .sort((a, b) => (a.startMs || a.start_ms) - (b.startMs || b.start_ms))
@@ -142,7 +143,6 @@ function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, o
               </div>
             </div>
           )}
-
           {session.laps && session.laps.length > 0 && (
             <div className="detail-section">
               <div className="detail-label">Laps ({session.laps.length})</div>
@@ -152,7 +152,7 @@ function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, o
                     <span className="detail-lap-num">#{lap.number}</span>
                     <span className="detail-lap-time">{formatMs(lap.time)}</span>
                     <span className="detail-lap-split">(split: {formatMs(lap.split)})</span>
-                    {lap.flagged && <span className="detail-lap-flag">🚩</span>}
+                    {lap.flagged && <span className="detail-lap-flag"><IconFlag size={12} filled /></span>}
                     {lap.note && <span className="detail-lap-note">{lap.note}</span>}
                   </div>
                 ))}
@@ -165,7 +165,6 @@ function SessionCard({ session, isExpanded, onToggle, onDelete, deleteConfirm, o
   );
 }
 
-// ===== Main History Component =====
 function History() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,7 +180,6 @@ function History() {
   const currentYear = new Date().getFullYear();
   const currentMonthIndex = new Date().getMonth();
 
-  // ===== Load Sessions =====
   const loadSessions = useCallback(async () => {
     try {
       const data = await window.electronAPI.getSessions();
@@ -205,7 +203,6 @@ function History() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadSessions]);
 
-  // ===== Delete Handler =====
   const handleDelete = async (id) => {
     try {
       await window.electronAPI.deleteSession(id);
@@ -217,40 +214,31 @@ function History() {
     }
   };
 
-  // ===== Build Archive Tree (excludes today) =====
   const archiveTree = useMemo<ArchiveTree>(() => {
     const tree: ArchiveTree = {};
     sessions.forEach((s: any) => {
       const dateStr = (s.date || '').split('T')[0];
-      if (!dateStr || dateStr === todayStr) {
-        return;
-      }
-
+      if (!dateStr || dateStr === todayStr) return;
       const parts = dateStr.split('-');
       const year = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10) - 1;
-
-      
       if (!tree[year]) tree[year] = {};
       if (!tree[year][month]) tree[year][month] = {};
       if (!tree[year][month][dateStr]) {
         tree[year][month][dateStr] = { sessions: [], totalMs: 0 };
       }
-
       tree[year][month][dateStr].sessions.push(s);
       tree[year][month][dateStr].totalMs += s.totalMs;
     });
     return tree;
   }, [sessions, todayStr]);
 
-  // ===== Today's Sessions (latest first) =====
   const todaySessions = useMemo(() => {
     return sessions
       .filter(s => (s.date || '').split('T')[0] === todayStr)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sessions, todayStr]);
 
-  // ===== Year Summaries =====
   const yearSummaries = useMemo(() => {
     return Object.entries(archiveTree)
       .map(([year, months]) => {
@@ -258,7 +246,6 @@ function History() {
         let totalSessions = 0;
         const yearNum = parseInt(year, 10);
         const isCurrentYear = yearNum === currentYear;
-
         const monthEntries = Object.entries(months).map(([monthIdx, days]) => {
           const monthTotalMs = Object.values(days).reduce((s, d) => s + d.totalMs, 0);
           const monthSessions = Object.values(days).reduce((s, d) => s + d.sessions.length, 0);
@@ -270,14 +257,11 @@ function History() {
             totalSessions: monthSessions,
           };
         });
-
-        // Current year: Dec→Jan (newest first), Past years: Jan→Dec
         if (isCurrentYear) {
           monthEntries.sort((a, b) => b.month - a.month);
         } else {
           monthEntries.sort((a, b) => a.month - b.month);
         }
-
         return {
           year: yearNum,
           totalMs,
@@ -286,89 +270,53 @@ function History() {
           isCurrentYear,
         };
       })
-      .sort((a, b) => b.year - a.year); // Newest year at top
+      .sort((a, b) => b.year - a.year);
   }, [archiveTree, currentYear]);
 
-  // ===== Month Summary =====
   const monthSummary = useMemo(() => {
-  if (selectedYear === null || selectedMonth === null) return null;
-  const monthData = archiveTree[selectedYear]?.[selectedMonth];
-  if (!monthData) {
-    return { days: [] as (DayData & { dateStr: string })[], totalMs: 0, totalSessions: 0, isCurrentMonth: false };
-  }
-  const isCurrentYear = selectedYear === currentYear;
-  const isCurrentMonth = isCurrentYear && selectedMonth === currentMonthIndex;
-  const days = Object.entries(monthData)
-    .map(([dateStr, data]) => ({ dateStr, ...data }));
-  if (isCurrentMonth) {
-    days.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
-  } else {
-    days.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-  }
-  const totalMs = days.reduce((sum, d) => sum + d.totalMs, 0);
-  const totalSessions = days.reduce((sum, d) => sum + d.sessions.length, 0);
-  return { days, totalMs, totalSessions, isCurrentMonth };
-}, [archiveTree, selectedYear, selectedMonth, currentYear, currentMonthIndex]);
+    if (selectedYear === null || selectedMonth === null) return null;
+    const monthData = archiveTree[selectedYear]?.[selectedMonth];
+    if (!monthData) {
+      return { days: [] as (DayData & { dateStr: string })[], totalMs: 0, totalSessions: 0, isCurrentMonth: false };
+    }
+    const isCurrentYear = selectedYear === currentYear;
+    const isCurrentMonth = isCurrentYear && selectedMonth === currentMonthIndex;
+    const days = Object.entries(monthData).map(([dateStr, data]) => ({ dateStr, ...data }));
+    if (isCurrentMonth) {
+      days.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+    } else {
+      days.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+    }
+    const totalMs = days.reduce((sum, d) => sum + d.totalMs, 0);
+    const totalSessions = days.reduce((sum, d) => sum + d.sessions.length, 0);
+    return { days, totalMs, totalSessions, isCurrentMonth };
+  }, [archiveTree, selectedYear, selectedMonth, currentYear, currentMonthIndex]);
 
-const selectedDaySessions = useMemo(() => {
-  if (!selectedDate || selectedYear === null || selectedMonth === null) return [] as any[];
-  const dayData = archiveTree[selectedYear]?.[selectedMonth]?.[selectedDate];
-  return dayData
-    ? dayData.sessions.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    : [];
-}, [archiveTree, selectedYear, selectedMonth, selectedDate]);
+  const selectedDaySessions = useMemo(() => {
+    if (!selectedDate || selectedYear === null || selectedMonth === null) return [] as any[];
+    const dayData = archiveTree[selectedYear]?.[selectedMonth]?.[selectedDate];
+    return dayData
+      ? dayData.sessions.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      : [];
+  }, [archiveTree, selectedYear, selectedMonth, selectedDate]);
 
-  // ===== Navigation =====
   const goToArchive = () => { setView('archive'); setExpandedSession(null); setDeleteConfirm(null); };
   const goToToday = () => { setView('today'); setExpandedSession(null); setDeleteConfirm(null); };
-
-  const goToPastYear = (year) => {
-    setPastYearView(year);
-    setView('past-year');
-    setExpandedSession(null);
-    setDeleteConfirm(null);
-  };
-
-  const goToMonth = (year, month) => {
-    setSelectedYear(year);
-    setSelectedMonth(month);
-    setView('month');
-    setExpandedSession(null);
-    setDeleteConfirm(null);
-  };
-
-  const goToDay = (dateStr) => {
-    setSelectedDate(dateStr);
-    setView('day');
-    setExpandedSession(null);
-    setDeleteConfirm(null);
-  };
-
+  const goToPastYear = (year) => { setPastYearView(year); setView('past-year'); setExpandedSession(null); setDeleteConfirm(null); };
+  const goToMonth = (year, month) => { setSelectedYear(year); setSelectedMonth(month); setView('month'); setExpandedSession(null); setDeleteConfirm(null); };
+  const goToDay = (dateStr) => { setSelectedDate(dateStr); setView('day'); setExpandedSession(null); setDeleteConfirm(null); };
   const goBack = () => {
-    if (view === 'day') {
-      setView('month');
-      setSelectedDate(null);
-    } else if (view === 'month') {
-      if (selectedYear !== currentYear) {
-        setView('past-year');
-        setSelectedYear(null);
-        setSelectedMonth(null);
-      } else {
-        setView('archive');
-        setSelectedYear(null);
-        setSelectedMonth(null);
-      }
-    } else if (view === 'past-year') {
-      setView('archive');
-      setPastYearView(null);
-    } else if (view === 'archive') {
-      goToToday();
+    if (view === 'day') { setView('month'); setSelectedDate(null); }
+    else if (view === 'month') {
+      if (selectedYear !== currentYear) { setView('past-year'); setSelectedYear(null); setSelectedMonth(null); }
+      else { setView('archive'); setSelectedYear(null); setSelectedMonth(null); }
     }
+    else if (view === 'past-year') { setView('archive'); setPastYearView(null); }
+    else if (view === 'archive') { goToToday(); }
     setExpandedSession(null);
     setDeleteConfirm(null);
   };
 
-  // ===== Loading State =====
   if (loading) {
     return (
       <div className="history-container">
@@ -377,21 +325,18 @@ const selectedDaySessions = useMemo(() => {
     );
   }
 
-  // ===== RENDER: Today View =====
   if (view === 'today') {
     return (
       <div className="history-container">
         <ContributionGraph sessions={sessions} />
-
         <div className="today-section">
           <h2 className="section-title">
             Today
             <span className="section-date-subtitle">{formatDateFull(todayStr)}</span>
           </h2>
-
           {todaySessions.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📋</div>
+              <div className="empty-icon"><IconInbox size={20} /></div>
               <p>No sessions tracked today</p>
               <p className="empty-hint">Start the stopwatch and save a session to see it here.</p>
             </div>
@@ -412,10 +357,8 @@ const selectedDaySessions = useMemo(() => {
             </div>
           )}
         </div>
-
-        {/* Archive Button */}
         <button className="archive-entry-btn" onClick={goToArchive}>
-          <span className="archive-btn-icon">📦</span>
+          <span className="archive-btn-icon"><IconArchive size={18} /></span>
           <span className="archive-btn-text">
             <span className="archive-btn-title">Open Archive</span>
             <span className="archive-btn-subtitle">Browse past sessions by year, month & day</span>
@@ -426,19 +369,16 @@ const selectedDaySessions = useMemo(() => {
     );
   }
 
-  // ===== RENDER: Archive View (Year List) =====
   if (view === 'archive') {
     return (
       <div className="history-container">
         <button className="back-btn" onClick={goBack}>
-          ← Back to Today
+          <IconChevronLeft size={14} /> Back to Today
         </button>
-
-        <h2 className="section-title">📦 Archive</h2>
-
+        <h2 className="section-title"><IconArchive size={16} /> Archive</h2>
         {yearSummaries.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">📦</div>
+            <div className="empty-icon"><IconArchive size={20} /></div>
             <p>No archived sessions yet</p>
             <p className="empty-hint">Sessions from previous days will appear here.</p>
           </div>
@@ -456,25 +396,18 @@ const selectedDaySessions = useMemo(() => {
                     </div>
                     <div className="archive-month-list">
                       {ys.months.map((m) => (
-                        <div
-                          key={m.month}
-                          className="archive-month-row"
-                          onClick={() => goToMonth(ys.year, m.month)}
-                        >
+                        <div key={m.month} className="archive-month-row" onClick={() => goToMonth(ys.year, m.month)}>
                           <span className="archive-month-name">{monthNames[m.month]}</span>
                           <span className="archive-month-stats">
                             {formatMsCompact(m.totalMs)} · {m.totalSessions} session{m.totalSessions !== 1 ? 's' : ''}
                           </span>
-                          <span className="archive-month-arrow">▸</span>
+                          <span className="archive-month-arrow"><IconChevronDown size={12} style={{ transform: 'rotate(-90deg)' }} /></span>
                         </div>
                       ))}
                     </div>
                   </>
                 ) : (
-                  <div
-                    className="archive-past-year-btn"
-                    onClick={() => goToPastYear(ys.year)}
-                  >
+                  <div className="archive-past-year-btn" onClick={() => goToPastYear(ys.year)}>
                     <div className="archive-past-year-left">
                       <span className="archive-year-label">{ys.year}</span>
                       <span className="archive-past-year-months-count">
@@ -497,16 +430,13 @@ const selectedDaySessions = useMemo(() => {
     );
   }
 
-  // ===== RENDER: Past Year Month View =====
   if (view === 'past-year' && pastYearView !== null) {
     const pySummaries = yearSummaries.find(ys => ys.year === pastYearView);
-
     return (
       <div className="history-container">
         <button className="back-btn" onClick={goBack}>
-          ← Back to Archive
+          <IconChevronLeft size={14} /> Back to Archive
         </button>
-
         <h2 className="section-title">
           {pastYearView}
           {pySummaries && (
@@ -515,25 +445,20 @@ const selectedDaySessions = useMemo(() => {
             </span>
           )}
         </h2>
-
         {!pySummaries || pySummaries.months.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">📅</div>
+            <div className="empty-icon"><IconCalendar size={20} /></div>
             <p>No sessions this year</p>
           </div>
         ) : (
           <div className="archive-month-list">
             {pySummaries.months.map((m) => (
-              <div
-                key={m.month}
-                className="archive-month-row"
-                onClick={() => goToMonth(pastYearView, m.month)}
-              >
+              <div key={m.month} className="archive-month-row" onClick={() => goToMonth(pastYearView, m.month)}>
                 <span className="archive-month-name">{monthNames[m.month]}</span>
                 <span className="archive-month-stats">
                   {formatMsCompact(m.totalMs)} · {m.totalSessions} session{m.totalSessions !== 1 ? 's' : ''}
                 </span>
-                <span className="archive-month-arrow">▸</span>
+                <span className="archive-month-arrow"><IconChevronDown size={12} style={{ transform: 'rotate(-90deg)' }} /></span>
               </div>
             ))}
           </div>
@@ -542,14 +467,12 @@ const selectedDaySessions = useMemo(() => {
     );
   }
 
-  // ===== RENDER: Month View (Day List) =====
   if (view === 'month' && selectedYear !== null && selectedMonth !== null) {
     return (
       <div className="history-container">
         <button className="back-btn" onClick={goBack}>
-          ← Back to {selectedYear !== currentYear ? String(selectedYear) : 'Archive'}
+          <IconChevronLeft size={14} /> Back to {selectedYear !== currentYear ? String(selectedYear) : 'Archive'}
         </button>
-
         <h2 className="section-title">
           {monthNames[selectedMonth]} {selectedYear}
           {monthSummary && (
@@ -558,25 +481,20 @@ const selectedDaySessions = useMemo(() => {
             </span>
           )}
         </h2>
-
         {!monthSummary || monthSummary.days.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">📅</div>
+            <div className="empty-icon"><IconCalendar size={20} /></div>
             <p>No sessions this month</p>
           </div>
         ) : (
           <div className="archive-day-list">
             {monthSummary.days.map((day) => (
-              <div
-                key={day.dateStr}
-                className="archive-day-row"
-                onClick={() => goToDay(day.dateStr)}
-              >
+              <div key={day.dateStr} className="archive-day-row" onClick={() => goToDay(day.dateStr)}>
                 <span className="archive-day-date">{formatDateDayMonth(day.dateStr)}</span>
                 <span className="archive-day-stats">
                   {formatMsCompact(day.totalMs)} · {day.sessions.length} session{day.sessions.length !== 1 ? 's' : ''}
                 </span>
-                <span className="archive-day-arrow">▸</span>
+                <span className="archive-day-arrow"><IconChevronDown size={12} style={{ transform: 'rotate(-90deg)' }} /></span>
               </div>
             ))}
           </div>
@@ -585,14 +503,12 @@ const selectedDaySessions = useMemo(() => {
     );
   }
 
-  // ===== RENDER: Day View (Session List) =====
   if (view === 'day' && selectedDate) {
     return (
       <div className="history-container">
         <button className="back-btn" onClick={goBack}>
-          ← Back to {monthNames[selectedMonth]} {selectedYear}
+          <IconChevronLeft size={14} /> Back to {monthNames[selectedMonth]} {selectedYear}
         </button>
-
         <h2 className="section-title">
           {formatDateFull(selectedDate)}
           {selectedDaySessions.length > 0 && (
@@ -601,10 +517,9 @@ const selectedDaySessions = useMemo(() => {
             </span>
           )}
         </h2>
-
         {selectedDaySessions.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">📋</div>
+            <div className="empty-icon"><IconInbox size={20} /></div>
             <p>No sessions for this day</p>
           </div>
         ) : (

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { IconAlert, IconCheck, IconInfo } from './icons';
 
 let toastId = 0;
 let addToastFn = null;
@@ -31,7 +32,9 @@ function ToastContainer() {
       {toasts.map(toast => (
         <div key={toast.id} className={`toast toast-${toast.type}`}>
           <span className="toast-icon">
-            {toast.type === 'error' ? '⚠️' : toast.type === 'success' ? '✅' : 'ℹ️'}
+            {toast.type === 'error' ? <IconAlert size={14} style={{ color: 'var(--error)' }} /> :
+             toast.type === 'success' ? <IconCheck size={14} style={{ color: 'var(--success)' }} /> :
+             <IconInfo size={14} style={{ color: 'var(--primary-glow)' }} />}
           </span>
           <span className="toast-message">{toast.message}</span>
         </div>

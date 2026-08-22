@@ -13,7 +13,7 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   getSessions: () => import_electron.ipcRenderer.invoke("db:get-sessions"),
   deleteSession: (id) => import_electron.ipcRenderer.invoke("db:delete-session", id),
   getSessionsByDate: (date) => import_electron.ipcRenderer.invoke("db:get-sessions-by-date", date),
-  updateRunningState: (running, elapsedMs, isDistracted, distractionName, distractionElapsed) => import_electron.ipcRenderer.invoke("update-running-state", running, elapsedMs, isDistracted, distractionName, distractionElapsed),
+  updateRunningState: (running, elapsedMs, isDistracted, distractionName, distractionElapsed) => import_electron.ipcRenderer.send("update-running-state", running, elapsedMs, isDistracted, distractionName, distractionElapsed),
   onBeforeClose: (callback) => {
     import_electron.ipcRenderer.on("before-close", () => callback());
   },

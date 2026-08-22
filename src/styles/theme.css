@@ -1,103 +1,83 @@
 /* ==========================================================================
-   LAPWORK — "PLASMA NEBULA" DESIGN SYSTEM
-   Void black · animated aurora · film grain · liquid glass · plasma gradients
+   LAPWORK — "QUIET INDIGO" DESIGN SYSTEM
+   Deep indigo anchor · no effects · hairlines · 8px grid
    ========================================================================== */
-
-@property --border-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
 
 /* ── DARK (default) ─────────────────────────────────────────────────────── */
 :root {
-  /* Plasma spectrum */
-  --plasma-1: #7C5CFF;              /* electric violet */
-  --plasma-2: #FF4D9D;              /* hot magenta */
-  --plasma-3: #22D3EE;              /* cyan flare */
-  --plasma-4: #FF8A5C;              /* ember */
-
-  --grad-primary: linear-gradient(135deg, #7C5CFF 0%, #FF4D9D 60%, #FF8A5C 100%);
-  --grad-cool: linear-gradient(135deg, #7C5CFF 0%, #22D3EE 100%);
-  --grad-text: linear-gradient(90deg, #A78BFA, #FF4D9D 45%, #22D3EE 90%);
+  /* Brand */
+  --primary: #413AB4;
+  --primary-hover: #5549D4;
+  --primary-glow: #7B73E0;
+  --primary-soft: rgba(65, 58, 180, 0.14);
 
   /* Surfaces */
-  --bg-base: #06060B;
-  --bg-surface: rgba(255, 255, 255, 0.04);
-  --bg-elevated: rgba(22, 20, 40, 0.78);
+  --bg-base: #0A0A12;
+  --bg-surface: rgba(255, 255, 255, 0.03);
+  --bg-elevated: #16141F;
+  --bg-hover: rgba(255, 255, 255, 0.05);
   --bg-overlay: rgba(4, 4, 10, 0.65);
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.14);
 
   /* Text */
-  --text-primary: #F5F3FF;
-  --text-secondary: #A9A4C7;
-  --text-muted: #6F6A92;
+  --text-primary: #F0EEF8;
+  --text-secondary: #A8A3C0;
+  --text-muted: #6B6585;
 
-  /* Semantic (neon) */
-  --success: #34F5C5;
-  --warning: #FFB454;
-  --error: #FF5C7A;
+  /* Semantic */
+  --accent-warm: #FF8A65;
+  --warning: #FBBF24;
+  --error: #F87171;
+  --success: #4ADE80;
 
-  /* Legacy aliases (used across components) */
-  --primary: #7C5CFF;
-  --primary-glow: #A78BFA;
-  --primary-soft: rgba(124, 92, 255, 0.14);
-  --primary-border: rgba(124, 92, 255, 0.25);
-  --primary-border-strong: rgba(124, 92, 255, 0.5);
-  --accent-warm: #FF8A5C;
+  /* Graph ramp */
+  --graph-0: rgba(255, 255, 255, 0.05);
+  --graph-1: rgba(65, 58, 180, 0.25);
+  --graph-2: rgba(65, 58, 180, 0.45);
+  --graph-3: #5B51C4;
+  --graph-4: #7B73E0;
 
-  /* Effects */
-  --glow-primary: 0 0 24px rgba(124, 92, 255, 0.35);
-  --glow-magenta: 0 0 24px rgba(255, 77, 157, 0.3);
-  --glass-blur: blur(20px);
-  --glass-blur-heavy: blur(40px);
-  --inner-light: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* Radii */
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-pill: 999px;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
+  /* Fonts */
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Cascadia Code', 'Consolas', 'SF Mono', monospace;
 
-  --font-display: 'Space Grotesk', 'Segoe UI', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
-
-  --transition-fast: 150ms ease;
-  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-theme: 300ms ease;
-
-  --aurora-1: rgba(124, 92, 255, 0.26);
-  --aurora-2: rgba(34, 211, 238, 0.14);
-  --aurora-3: rgba(255, 77, 157, 0.17);
-  --aurora-4: rgba(52, 245, 197, 0.09);
+  /* Motion */
+  --transition: 180ms ease-out;
 }
 
-/* ── LIGHT — "Porcelain Nebula" ─────────────────────────────────────────── */
+/* ── LIGHT ──────────────────────────────────────────────────────────────── */
 :root[data-theme="light"] {
-  --bg-base: #F5F3FC;
-  --bg-surface: rgba(255, 255, 255, 0.72);
+  --bg-base: #F8F7FC;
+  --bg-surface: #FFFFFF;
   --bg-elevated: #FFFFFF;
-  --bg-overlay: rgba(245, 243, 252, 0.7);
+  --bg-hover: rgba(23, 20, 42, 0.04);
+  --bg-overlay: rgba(248, 247, 252, 0.7);
 
   --border-subtle: rgba(23, 20, 42, 0.08);
-  --border-strong: rgba(23, 20, 42, 0.18);
+  --border-strong: rgba(23, 20, 42, 0.16);
 
   --text-primary: #17142A;
   --text-secondary: #55507A;
   --text-muted: #8B86A8;
 
-  --glow-primary: 0 0 20px rgba(124, 92, 255, 0.18);
-  --glow-magenta: 0 0 20px rgba(255, 77, 157, 0.15);
-  --inner-light: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --primary: #413AB4;
+  --primary-hover: #352F99;
+  --primary-glow: #413AB4;
+  --primary-soft: rgba(65, 58, 180, 0.08);
 
-  --shadow-sm: 0 2px 8px rgba(23, 20, 42, 0.08);
-  --shadow-md: 0 8px 24px rgba(23, 20, 42, 0.12);
-  --shadow-lg: 0 16px 48px rgba(23, 20, 42, 0.16);
-
-  --aurora-1: rgba(124, 92, 255, 0.16);
-  --aurora-2: rgba(34, 211, 238, 0.12);
-  --aurora-3: rgba(255, 77, 157, 0.10);
-  --aurora-4: rgba(52, 245, 197, 0.10);
+  --graph-0: rgba(23, 20, 42, 0.06);
+  --graph-1: rgba(65, 58, 180, 0.2);
+  --graph-2: rgba(65, 58, 180, 0.4);
+  --graph-3: rgba(65, 58, 180, 0.65);
+  --graph-4: #413AB4;
 }
 
 /* ── Base ───────────────────────────────────────────────────────────────── */
@@ -105,120 +85,77 @@
 
 html {
   background: var(--bg-base);
-  transition: background var(--transition-theme);
+  transition: background var(--transition);
 }
 
 body {
   margin: 0;
   padding: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  transition: color var(--transition-theme);
+  transition: color var(--transition);
 }
 
-/* ── ANIMATED AURORA (the "WTH" layer) ──────────────────────────────────── */
+/* ── Ambient reactive background ────────────────────────────────────────── */
 body::before {
   content: '';
   position: fixed;
-  inset: -25%;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(42% 36% at 18% 24%, var(--aurora-1), transparent 62%),
-    radial-gradient(34% 30% at 82% 16%, var(--aurora-2), transparent 60%),
-    radial-gradient(46% 40% at 72% 82%, var(--aurora-3), transparent 66%),
-    radial-gradient(30% 28% at 32% 78%, var(--aurora-4), transparent 60%);
-  filter: blur(70px) saturate(1.25);
-  animation: aurora-drift 26s ease-in-out infinite alternate;
+  background: radial-gradient(60% 45% at 50% 0%, rgba(65, 58, 180, 0.06), transparent 70%);
+  opacity: 0.5;
+  transition: opacity 1s ease;
 }
 
-@keyframes aurora-drift {
-  0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-  50%  { transform: translate3d(3%, -2%, 0) scale(1.1) rotate(2deg); }
-  100% { transform: translate3d(-3%, 2%, 0) scale(1.05) rotate(-2deg); }
-}
-
-/* ── FILM GRAIN (kills the "flat template" feel) ────────────────────────── */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: 9998;
+  z-index: -1;
   pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background: radial-gradient(60% 45% at 50% 0%, rgba(255, 138, 101, 0.05), transparent 70%);
+  opacity: 0;
+  transition: opacity 1s ease;
 }
 
-:root[data-theme="light"] body::after { opacity: 0.02; }
-
-/* ── Liquid glass utilities ─────────────────────────────────────────────── */
-.glass-surface {
-  background: var(--bg-surface);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  box-shadow: var(--inner-light);
+:root[data-theme="light"] body::before {
+  background: radial-gradient(60% 45% at 50% 0%, rgba(65, 58, 180, 0.03), transparent 70%);
 }
 
-/* Rotating iridescent border (hero elements) */
-.iridescent {
-  position: relative;
-}
-.iridescent::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from var(--border-angle),
-    rgba(124, 92, 255, 0.7),
-    rgba(255, 77, 157, 0.4),
-    rgba(34, 211, 238, 0.5),
-    rgba(255, 138, 92, 0.35),
-    rgba(124, 92, 255, 0.7)
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0.55;
-  animation: border-spin 8s linear infinite;
+:root[data-theme="light"] body::after {
+  background: radial-gradient(60% 45% at 50% 0%, rgba(255, 138, 101, 0.025), transparent 70%);
 }
 
-@keyframes border-spin {
-  to { --border-angle: 360deg; }
-}
+:root[data-state="idle"] body::before { opacity: 0.5; }
+:root[data-state="idle"] body::after { opacity: 0; }
+
+:root[data-state="focusing"] body::before { opacity: 1; }
+:root[data-state="focusing"] body::after { opacity: 0; }
+
+:root[data-state="distracted"] body::before { opacity: 0; }
+:root[data-state="distracted"] body::after { opacity: 1; }
 
 /* ── Focus ring ─────────────────────────────────────────────────────────── */
 :focus-visible {
-  outline: 2px solid var(--plasma-3);
+  outline: 2px solid var(--primary-glow);
   outline-offset: 2px;
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
 }
 
-/* ── Scrollbar — plasma thumb ───────────────────────────────────────────── */
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--plasma-1), var(--plasma-2));
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--plasma-3), var(--plasma-1));
-}
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(23, 20, 42, 0.15); }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(23, 20, 42, 0.25); }
 
 /* ── Selection ──────────────────────────────────────────────────────────── */
-::selection {
-  background: rgba(255, 77, 157, 0.4);
-  color: #fff;
-}
+::selection { background: rgba(65, 58, 180, 0.35); }
 
 /* ── Reduced motion ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

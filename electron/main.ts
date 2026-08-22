@@ -1,7 +1,16 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Tray, Menu, nativeImage, screen } from 'electron';
-import path from 'path';
-import fs from 'fs';
-import { autoUpdater } from 'electron-updater';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Tray,
+  Menu,
+  nativeImage,
+  screen,
+  dialog,
+} from "electron";
+import path from "path";
+import fs from "fs";
+import { autoUpdater } from "electron-updater";
 
 declare global {
   namespace Electron {
@@ -11,35 +20,56 @@ declare global {
   }
 }
 
-// ===== CRASH GUARDS: log instead of dying =====
-process.on('uncaughtException', (error) => {
-  console.error('[MAIN] Uncaught exception (app kept alive):', error);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('[MAIN] Unhandled rejection (app kept alive):', reason);
+// ===== CRASH LOGGING =====
+function writeCrashLog(message: string) {
+  try {
+    const logDir = app.isReady() ? app.getPath("userData") : process.cwd();
+    const logPath = path.join(logDir, "crash.log");
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`);
+  } catch {
+    /* ignore */
+  }
+}
+
+process.on("uncaughtException", (error) => {
+  const msg = `Uncaught exception: ${error?.stack || String(error)}`;
+  console.error("[MAIN]", msg);
+  writeCrashLog(msg);
 });
 
-// SINGLE INSTANCE LOCK
+process.on("unhandledRejection", (reason) => {
+  const msg = `Unhandled rejection: ${reason instanceof Error ? reason.stack : String(reason)}`;
+  console.error("[MAIN]", msg);
+  writeCrashLog(msg);
+});
+
+app.disableHardwareAcceleration();
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on("second-instance", () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
       mainWindow.focus();
     }
   });
 }
 
-// Disable DevTools
-app.on('web-contents-created', (_event, contents) => {
-  contents.on('before-input-event', (event, input) => {
-    if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
-      event.preventDefault();
-    }
-  });
+app.on("web-contents-created", (_event, contents) => {
+  if (app.isPackaged) {
+    contents.on("before-input-event", (event, input) => {
+      if (
+        input.key === "F12" ||
+        (input.control && input.shift && input.key === "I")
+      ) {
+        event.preventDefault();
+      }
+    });
+  }
 });
 
 let mainWindow: BrowserWindow | null = null;
@@ -49,315 +79,499 @@ let db: any = null;
 let SQL: any = null;
 let isRunning = false;
 let isMinimizingFromMini = false;
+let updateInterval: NodeJS.Timeout | null = null;
 
-// Helper to safely send IPC messages without crashing if window is destroyed/reloading
-function safeSend(win: BrowserWindow | null | undefined, channel: string, ...args: any[]) {
+function safeSend(
+  win: BrowserWindow | null | undefined,
+  channel: string,
+  ...args: any[]
+) {
   try {
-    if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+    if (
+      win &&
+      !win.isDestroyed() &&
+      win.webContents &&
+      !win.webContents.isDestroyed()
+    ) {
       win.webContents.send(channel, ...args);
     }
   } catch (e) {
-    // Silently ignore IPC send errors to prevent main process crash
+    /* ignore */
   }
+}
+
+function getIconPath(): string {
+  const ext =
+    process.platform === "win32"
+      ? "ico"
+      : process.platform === "darwin"
+        ? "icns"
+        : "png";
+  const iconName = `icon.${ext}`;
+  return app.isPackaged
+    ? path.join(process.resourcesPath, iconName)
+    : path.join(__dirname, "..", "build", iconName);
 }
 
 // ===== DATABASE FUNCTIONS =====
 async function initDatabase() {
-  const sqlModule: any = await import('sql.js');
+  const sqlModule: any = await import("sql.js");
   const initSqlJs = sqlModule.default || sqlModule;
-  SQL = await initSqlJs();
+
+  const wasmPath = app.isPackaged
+    ? path.join(
+        process.resourcesPath,
+        "app.asar.unpacked",
+        "node_modules",
+        "sql.js",
+        "dist",
+        "sql-wasm.wasm",
+      )
+    : path.join(
+        __dirname,
+        "..",
+        "node_modules",
+        "sql.js",
+        "dist",
+        "sql-wasm.wasm",
+      );
+
+  const wasmBinary = fs.readFileSync(wasmPath);
+  SQL = await initSqlJs({ wasmBinary });
 
   const dbPath = getDbPath();
 
-  if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath);
-    db = new SQL.Database(buffer);
-  } else {
+  try {
+    if (fs.existsSync(dbPath)) {
+      const buffer = fs.readFileSync(dbPath);
+      db = new SQL.Database(buffer);
+    } else {
+      db = new SQL.Database();
+    }
+  } catch (err) {
+    writeCrashLog(
+      `DB unreadable, starting fresh: ${err instanceof Error ? err.stack : String(err)}`,
+    );
+    try {
+      fs.renameSync(dbPath, `${dbPath}.corrupt-${Date.now()}`);
+    } catch {}
     db = new SQL.Database();
   }
 
-  db.run('PRAGMA foreign_keys = ON');
+  db.run("PRAGMA foreign_keys = ON");
 
   db.run(`CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    date TEXT NOT NULL,
-    total_ms INTEGER NOT NULL DEFAULT 0,
-    note TEXT DEFAULT '',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`);
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, date TEXT NOT NULL, total_ms INTEGER NOT NULL DEFAULT 0,
+      note TEXT DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS laps (
-    id TEXT PRIMARY KEY,
-    session_id TEXT NOT NULL,
-    number INTEGER NOT NULL,
-    lap_time_ms INTEGER NOT NULL,
-    split_ms INTEGER NOT NULL,
-    note TEXT DEFAULT '',
-    flagged INTEGER DEFAULT 0,
-    timestamp TEXT NOT NULL
-  )`);
+      id TEXT PRIMARY KEY, session_id TEXT NOT NULL, number INTEGER NOT NULL, lap_time_ms INTEGER NOT NULL,
+      split_ms INTEGER NOT NULL, note TEXT DEFAULT '', flagged INTEGER DEFAULT 0, timestamp TEXT NOT NULL
+    )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS distractions (
-    id TEXT PRIMARY KEY,
-    session_id TEXT NOT NULL,
-    name TEXT DEFAULT '',
-    start_ms INTEGER NOT NULL,
-    duration_ms INTEGER NOT NULL DEFAULT 0,
-    note TEXT DEFAULT '',
-    timestamp TEXT NOT NULL
-  )`);
+      id TEXT PRIMARY KEY, session_id TEXT NOT NULL, name TEXT DEFAULT '', start_ms INTEGER NOT NULL,
+      duration_ms INTEGER NOT NULL DEFAULT 0, note TEXT DEFAULT '', timestamp TEXT NOT NULL
+    )`);
 
   saveDatabase();
 }
 
 function getDbPath(): string {
   return app.isPackaged
-    ? path.join(app.getPath('userData'), 'lapwork.db')
-    : path.join(app.getPath('userData'), 'lapwork-dev.db');
+    ? path.join(app.getPath("userData"), "lapwork.db")
+    : path.join(app.getPath("userData"), "lapwork-dev.db");
 }
 
 function saveDatabase() {
   if (!db) return;
   const data = db.export();
-  fs.writeFileSync(getDbPath(), Buffer.from(data));
+  const dbPath = getDbPath();
+  const tempPath = dbPath + ".tmp";
+  fs.writeFileSync(tempPath, Buffer.from(data));
+  fs.renameSync(tempPath, dbPath);
 }
 
 // ===== TRAY =====
 function createTray() {
   try {
-    const iconPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'icon.ico')
-      : path.join(__dirname, '..', 'build', 'icon.ico');
+    const iconPath = getIconPath();
+    if (!fs.existsSync(iconPath)) return;
 
-    if (!fs.existsSync(iconPath)) {
-      console.warn('Tray icon not found:', iconPath);
-      return;
-    }
-
-    const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-
-    if (icon.isEmpty()) {
-      console.warn('Tray icon is empty:', iconPath);
-      return;
-    }
+    const icon = nativeImage
+      .createFromPath(iconPath)
+      .resize({ width: 16, height: 16 });
+    if (icon.isEmpty()) return;
 
     tray = new Tray(icon);
     updateTrayMenu();
-    tray.setToolTip('lapwork');
+    tray.setToolTip("lapwork");
 
-    tray.on('click', () => {
+    tray.on("click", () => {
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
       }
     });
   } catch (error) {
-    console.error('Tray creation failed:', error);
+    console.error("Tray creation failed:", error);
   }
 }
 
 function updateTrayMenu() {
   if (!tray) return;
   const contextMenu = Menu.buildFromTemplate([
-    { label: isRunning ? '⏸ Stop Stopwatch' : '▶ Start Stopwatch', click: () => safeSend(mainWindow, 'global-shortcut', 'space') },
-    { label: '🏁 Add Lap', click: () => safeSend(mainWindow, 'global-shortcut', 'l') },
-    { type: 'separator' },
-    { label: 'Show Window', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
-    { type: 'separator' },
-    { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } }
+    {
+      label: isRunning ? "Stop Stopwatch" : "Start Stopwatch",
+      click: () => safeSend(mainWindow, "global-shortcut", "space"),
+    },
+    {
+      label: "Add Lap",
+      click: () => safeSend(mainWindow, "global-shortcut", "l"),
+    },
+    { type: "separator" },
+    {
+      label: "Show Window",
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Quit",
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
   ]);
   tray.setContextMenu(contextMenu);
 }
 
 // ===== IPC HANDLERS =====
 function setupIpcHandlers() {
-  // ===== Database Handlers =====
-  ipcMain.handle('db:save-session', async (_event, session: any) => {
-    if (!db) return { success: false, error: 'Database not initialized' };
+  ipcMain.handle("db:save-session", async (_event, session: any) => {
+    if (!db) return { success: false, error: "Database not initialized" };
     try {
-      db.run('DELETE FROM laps WHERE session_id = ?', [session.id]);
-      db.run('DELETE FROM distractions WHERE session_id = ?', [session.id]);
+      db.run("BEGIN TRANSACTION");
+      db.run("DELETE FROM laps WHERE session_id = ?", [session.id]);
+      db.run("DELETE FROM distractions WHERE session_id = ?", [session.id]);
       db.run(
         `INSERT OR REPLACE INTO sessions (id, name, date, total_ms, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [session.id, session.name || 'Untitled Session', session.date, Math.round(session.totalMs || 0), session.note || '', session.createdAt, new Date().toISOString()]
+        [
+          session.id,
+          session.name || "Untitled Session",
+          session.date,
+          Math.round(session.totalMs || 0),
+          session.note || "",
+          session.createdAt,
+          new Date().toISOString(),
+        ],
       );
+
       for (const lap of session.laps || []) {
         db.run(
           `INSERT OR REPLACE INTO laps (id, session_id, number, lap_time_ms, split_ms, note, flagged, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [lap.id, session.id, lap.number, Math.round(lap.time || 0), Math.round(lap.split || 0), lap.note || '', lap.flagged ? 1 : 0, lap.timestamp]
+          [
+            lap.id,
+            session.id,
+            lap.number,
+            Math.round(lap.time || 0),
+            Math.round(lap.split || 0),
+            lap.note || "",
+            lap.flagged ? 1 : 0,
+            lap.timestamp,
+          ],
         );
       }
       for (const d of session.distractions || []) {
         db.run(
           `INSERT OR REPLACE INTO distractions (id, session_id, name, start_ms, duration_ms, note, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [d.id, session.id, d.name || '', Math.round(d.startMs || 0), Math.round(d.durationMs || 0), d.note || '', d.timestamp]
+          [
+            d.id,
+            session.id,
+            d.name || "",
+            Math.round(d.startMs || 0),
+            Math.round(d.durationMs || 0),
+            d.note || "",
+            d.timestamp,
+          ],
         );
       }
+      db.run("COMMIT");
       saveDatabase();
       return { success: true };
     } catch (error: any) {
+      try {
+        db.run("ROLLBACK");
+      } catch {}
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:get-sessions', () => {
+  ipcMain.handle("db:get-sessions", () => {
     if (!db) return [];
-    const sessions: any[] = [];
-    const stmt = db.prepare('SELECT * FROM sessions ORDER BY date DESC');
-    while (stmt.step()) {
-      const s = stmt.getAsObject();
-      const session = { ...s, totalMs: s.total_ms, laps: [], distractions: [] };
-      const lstmt = db.prepare('SELECT * FROM laps WHERE session_id = ? ORDER BY number ASC');
-      lstmt.bind([session.id]);
-      while (lstmt.step()) {
-        const l = lstmt.getAsObject();
-        session.laps.push({ ...l, time: l.lap_time_ms, split: l.split_ms, flagged: l.flagged === 1 });
-      }
-      lstmt.free();
-      const dstmt = db.prepare('SELECT * FROM distractions WHERE session_id = ? ORDER BY start_ms ASC');
-      dstmt.bind([session.id]);
-      while (dstmt.step()) {
-        const d = dstmt.getAsObject();
-        session.distractions.push({ ...d, startMs: d.start_ms, durationMs: d.duration_ms });
-      }
-      dstmt.free();
-      sessions.push(session);
-    }
-    stmt.free();
-    return sessions;
-  });
-
-  ipcMain.handle('db:get-sessions-by-date', (_event, date: string) => {
-    if (!db) return [];
-    const sessions: any[] = [];
-    const stmt = db.prepare('SELECT * FROM sessions WHERE date LIKE ? ORDER BY created_at DESC');
-    stmt.bind([date + '%']);
-    while (stmt.step()) {
-      const s = stmt.getAsObject();
-      sessions.push({ ...s, totalMs: s.total_ms, laps: [], distractions: [] });
-    }
-    stmt.free();
-    return sessions;
-  });
-
-  ipcMain.handle('get-is-running', () => isRunning);
-
-  ipcMain.handle('db:delete-session', (_event, id: string) => {
-    if (!db) return { success: false, error: 'Database not initialized' };
+    let stmt: any = null;
     try {
-      db.run('DELETE FROM laps WHERE session_id = ?', [id]);
-      db.run('DELETE FROM distractions WHERE session_id = ?', [id]);
-      db.run('DELETE FROM sessions WHERE id = ?', [id]);
+      const sessions: any[] = [];
+      stmt = db.prepare("SELECT * FROM sessions ORDER BY date DESC");
+      while (stmt.step()) {
+        const s = stmt.getAsObject();
+        const session = {
+          ...s,
+          totalMs: s.total_ms,
+          laps: [],
+          distractions: [],
+        };
+        let lstmt: any = null,
+          dstmt: any = null;
+        try {
+          lstmt = db.prepare(
+            "SELECT * FROM laps WHERE session_id = ? ORDER BY number ASC",
+          );
+          lstmt.bind([session.id]);
+          while (lstmt.step()) {
+            const l = lstmt.getAsObject();
+            session.laps.push({
+              ...l,
+              time: l.lap_time_ms,
+              split: l.split_ms,
+              flagged: l.flagged === 1,
+            });
+          }
+          dstmt = db.prepare(
+            "SELECT * FROM distractions WHERE session_id = ? ORDER BY start_ms ASC",
+          );
+          dstmt.bind([session.id]);
+          while (dstmt.step()) {
+            const d = dstmt.getAsObject();
+            session.distractions.push({
+              ...d,
+              startMs: d.start_ms,
+              durationMs: d.duration_ms,
+            });
+          }
+        } finally {
+          if (lstmt) lstmt.free();
+          if (dstmt) dstmt.free();
+        }
+        sessions.push(session);
+      }
+      return sessions;
+    } catch (error: any) {
+      writeCrashLog(`db:get-sessions failed: ${error.stack}`);
+      return [];
+    } finally {
+      if (stmt) stmt.free();
+    }
+  });
+
+  ipcMain.handle("db:get-sessions-by-date", (_event, date: string) => {
+    if (!db) return [];
+    const sessions: any[] = [];
+    let stmt: any = null;
+    try {
+      stmt = db.prepare(
+        "SELECT * FROM sessions WHERE date LIKE ? ORDER BY created_at DESC",
+      );
+      stmt.bind([date + "%"]);
+      while (stmt.step()) {
+        const s = stmt.getAsObject();
+        sessions.push({
+          ...s,
+          totalMs: s.total_ms,
+          laps: [],
+          distractions: [],
+        });
+      }
+    } catch (error: any) {
+      writeCrashLog(`db:get-sessions-by-date failed: ${error.stack}`);
+    } finally {
+      if (stmt) stmt.free();
+    }
+    return sessions;
+  });
+
+  ipcMain.handle("get-is-running", () => isRunning);
+
+  ipcMain.handle("db:delete-session", (_event, id: string) => {
+    if (!db) return { success: false, error: "Database not initialized" };
+    try {
+      db.run("BEGIN TRANSACTION");
+      db.run("DELETE FROM laps WHERE session_id = ?", [id]);
+      db.run("DELETE FROM distractions WHERE session_id = ?", [id]);
+      db.run("DELETE FROM sessions WHERE id = ?", [id]);
+      db.run("COMMIT");
       saveDatabase();
       return { success: true };
     } catch (e: any) {
+      try {
+        db.run("ROLLBACK");
+      } catch {}
       return { success: false, error: e.message };
     }
   });
 
-  // ===== State Sync (✅ NaN-safe & throttled tray updates) =====
-  ipcMain.handle('update-running-state', (_event, running: boolean, elapsedMs: number, isDistracted: boolean, distractionName: string, distractionElapsed: number) => {
-    const newRunning = !!running;
-    
-    // ✅ CRITICAL FIX: Only rebuild the tray menu when the running state ACTUALLY flips.
-    // Rebuilding it 60x/sec causes a fatal Windows GDI crash that silently kills the app.
-    if (newRunning !== isRunning) {
-      isRunning = newRunning;
-      updateTrayMenu();
-    }
+  ipcMain.on(
+    "update-running-state",
+    (
+      _event,
+      running: boolean,
+      elapsedMs: number,
+      isDistracted: boolean,
+      distractionName: string,
+      distractionElapsed: number,
+    ) => {
+      const newRunning = !!running;
+      if (newRunning !== isRunning) {
+        isRunning = newRunning;
+        updateTrayMenu();
+      }
+      safeSend(miniWindow, "stopwatch-state-update", {
+        isRunning: newRunning,
+        elapsedMs: Number.isFinite(elapsedMs) ? elapsedMs : 0,
+        isDistracted: !!isDistracted,
+        distractionName: distractionName || "",
+        distractionElapsed: Number.isFinite(distractionElapsed)
+          ? distractionElapsed
+          : 0,
+      });
+    },
+  );
 
-    safeSend(miniWindow, 'stopwatch-state-update', {
-      isRunning: newRunning,
-      elapsedMs: Number.isFinite(elapsedMs) ? elapsedMs : 0,
-      isDistracted: !!isDistracted,
-      distractionName: distractionName || '',
-      distractionElapsed: Number.isFinite(distractionElapsed) ? distractionElapsed : 0,
-    });
-  });
-
-  ipcMain.handle('confirm-quit', () => {
+  ipcMain.handle("confirm-quit", () => {
     app.isQuitting = true;
     app.quit();
   });
 
-  ipcMain.on('mini-command', (_event, command: string) => {
-    safeSend(mainWindow, 'global-shortcut',
-      command === 'toggle' ? 'space' :
-      command === 'd' ? 'd' :
-      command === 'reset' ? 'ctrl+r' :
-      command === 'save' ? 'ctrl+s' : command
+  ipcMain.on("mini-command", (_event, command: string) => {
+    safeSend(
+      mainWindow,
+      "global-shortcut",
+      command === "toggle"
+        ? "space"
+        : command === "d"
+          ? "d"
+          : command === "reset"
+            ? "ctrl+r"
+            : command === "save"
+              ? "ctrl+s"
+              : command,
     );
   });
 
-  // ===== Window Management =====
-  ipcMain.handle('minimize-to-tray', () => {
+  ipcMain.handle("minimize-to-tray", () => {
     if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
     if (mainWindow && !mainWindow.isDestroyed()) {
       isMinimizingFromMini = true;
-      mainWindow.show();
+
       mainWindow.minimize();
+      mainWindow.hide();
     }
   });
 
-  ipcMain.on('sync-elapsed-to-main', (_event, elapsedMs: number) => {
-    safeSend(mainWindow, 'sync-elapsed-from-mini', Number.isFinite(elapsedMs) ? elapsedMs : 0);
-  });
+  ipcMain.on("sync-elapsed-to-main", (_event, elapsedMs: number) =>
+    safeSend(
+      mainWindow,
+      "sync-elapsed-from-mini",
+      Number.isFinite(elapsedMs) ? elapsedMs : 0,
+    ),
+  );
+  ipcMain.on("distraction-stop-with-name", (_event, name: string) =>
+    safeSend(mainWindow, "distraction-stop-with-name", name),
+  );
 
-  ipcMain.on('distraction-stop-with-name', (_event, name: string) => {
-    safeSend(mainWindow, 'distraction-stop-with-name', name);
-  });
-
-  ipcMain.handle('restore-main-window', () => {
+  ipcMain.handle("restore-main-window", () => {
     if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
       mainWindow.focus();
     }
   });
-
-  ipcMain.handle('restore-main-window-and-close', () => {
+  ipcMain.handle("restore-main-window-and-close", () => {
     if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
       mainWindow.focus();
-      safeSend(mainWindow, 'before-close');
+      safeSend(mainWindow, "before-close");
     }
   });
 
-  ipcMain.handle('resize-mini-window', (_event, width: number, height: number) => {
+  ipcMain.handle("resize-mini-window", (_event, w: number, h: number) => {
     try {
-      if (miniWindow && !miniWindow.isDestroyed() && Number.isFinite(width) && Number.isFinite(height)) {
-        miniWindow.setSize(Math.round(width), Math.round(height));
-      }
-    } catch (e) { console.warn('[MAIN] resize-mini-window failed:', e); }
+      if (
+        miniWindow &&
+        !miniWindow.isDestroyed() &&
+        Number.isFinite(w) &&
+        Number.isFinite(h)
+      )
+        miniWindow.setSize(Math.round(w), Math.round(h));
+    } catch (e) {}
   });
-
-  ipcMain.handle('set-mini-max-size', (_event, width: number, height: number) => {
+  ipcMain.handle("set-mini-max-size", (_event, w: number, h: number) => {
     try {
-      if (miniWindow && !miniWindow.isDestroyed() && Number.isFinite(width) && Number.isFinite(height)) {
+      if (
+        miniWindow &&
+        !miniWindow.isDestroyed() &&
+        Number.isFinite(w) &&
+        Number.isFinite(h)
+      ) {
         const [minW, minH] = miniWindow.getMinimumSize();
-        // ✅ Never allow max < min (fatal Electron CHECK on Windows)
-        miniWindow.setMaximumSize(Math.max(width, minW), Math.max(height, minH));
+        miniWindow.setMaximumSize(Math.max(w, minW), Math.max(h, minH));
       }
-    } catch (e) { console.warn('[MAIN] set-mini-max-size failed:', e); }
+    } catch (e) {}
   });
-
-  ipcMain.handle('set-mini-min-size', (_event, width: number, height: number) => {
+  ipcMain.handle("set-mini-min-size", (_event, w: number, h: number) => {
     try {
-      if (miniWindow && !miniWindow.isDestroyed() && Number.isFinite(width) && Number.isFinite(height)) {
+      if (
+        miniWindow &&
+        !miniWindow.isDestroyed() &&
+        Number.isFinite(w) &&
+        Number.isFinite(h)
+      ) {
         const [maxW, maxH] = miniWindow.getMaximumSize();
-        // ✅ Never allow min > max
-        miniWindow.setMinimumSize(Math.min(width, maxW), Math.min(height, maxH));
+        miniWindow.setMinimumSize(Math.min(w, maxW), Math.min(h, maxH));
       }
-    } catch (e) { console.warn('[MAIN] set-mini-min-size failed:', e); }
+    } catch (e) {}
+  });
+  ipcMain.on("focus-mini-window", () => {
+    if (miniWindow && !miniWindow.isDestroyed()) miniWindow.focus();
+  });
+}
+
+function attachRenderGuards(win: BrowserWindow) {
+  let failures = 0;
+  const MAX_FAILURES = 5;
+
+  const handleFailure = () => {
+    failures++;
+    if (failures > MAX_FAILURES) {
+      dialog.showErrorBox(
+        "lapwork",
+        "The app's interface keeps failing to load. Please reinstall the app.",
+      );
+      return;
+    }
+    if (!win.isDestroyed()) win.reload();
+  };
+
+  win.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+    if (errorCode === -3) return; // aborted nav, not a real failure
+    writeCrashLog(`Window failed to load: ${errorCode} - ${errorDescription}`);
+    handleFailure();
   });
 
-  ipcMain.on('focus-mini-window', () => {
-    if (miniWindow && !miniWindow.isDestroyed()) {
-      miniWindow.focus();
-    }
+  win.webContents.on("render-process-gone", (_event, details) => {
+    writeCrashLog(`Render process gone: ${details.reason}`);
+    handleFailure();
+  });
+
+  win.webContents.on("did-finish-load", () => {
+    failures = 0;
   });
 }
 
@@ -368,11 +582,6 @@ async function createMiniWindow() {
     return;
   }
 
-  const iconPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'icon.ico')
-    : path.join(__dirname, '..', 'build', 'icon.ico');
-
-  // ✅ Create as a local const first — it can never be null
   const win = new BrowserWindow({
     width: 220,
     height: 200,
@@ -385,137 +594,162 @@ async function createMiniWindow() {
     skipTaskbar: true,
     resizable: true,
     transparent: true,
-    backgroundColor: '#00000000',
+    backgroundColor: "#00000000",
     show: false,
     roundedCorners: true,
-    icon: iconPath,
+    icon: getIconPath(),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   });
-
-  miniWindow = win; // assign to the shared variable only once
+  miniWindow = win;
+  attachRenderGuards(win);
 
   const isDev = !app.isPackaged;
-  if (isDev) {
-    win.loadURL('http://localhost:5173/mini.html');
-  } else {
-    win.loadFile(path.join(__dirname, '..', 'dist', 'mini.html'));
-  }
+  if (isDev) win.loadURL("http://localhost:5173/mini.html");
+  else win.loadFile(path.join(__dirname, "..", "dist", "mini.html"));
 
-  win.once('ready-to-show', () => {
+  win.once("ready-to-show", () => {
+    const display = screen.getDisplayNearestPoint(
+      screen.getCursorScreenPoint(),
+    );
+    const { x, y, width, height } = display.workArea;
+    win.setPosition(x + width - 300, y + height - 260);
     win.show();
     win.focus();
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    win.setPosition(width - 300, height - 260);
-    safeSend(mainWindow, 'get-stopwatch-state'); // ✅ Use safeSend
+    safeSend(mainWindow, "get-stopwatch-state");
   });
 
-  win.on('blur', () => safeSend(win, 'window-blur'));
-  win.on('focus', () => safeSend(win, 'window-focus'));
-
-  // ✅ FIX: Just set miniWindow to null. Do NOT attach mainWindow listeners here!
-  win.on('closed', () => {
+  win.on("blur", () => safeSend(win, "window-blur"));
+  win.on("focus", () => safeSend(win, "window-focus"));
+  win.on("closed", () => {
     miniWindow = null;
   });
 }
 
 // ===== MAIN WINDOW =====
 function createWindow() {
-  const iconPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'icon.ico')
-    : path.join(__dirname, '..', 'build', 'icon.ico');
-
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'lapwork',
+    title: "lapwork",
     show: false,
-    backgroundColor: '#0f0f0f',
-    icon: iconPath,
+    backgroundColor: "#0f0f0f",
+    icon: getIconPath(),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
-
-  mainWindow.maximize();
+  attachRenderGuards(mainWindow);
 
   const isDev = !app.isPackaged;
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
-  }
+    mainWindow.loadURL("http://localhost:5173");
+    mainWindow.webContents.openDevTools({ mode: "detach" });
+  } else mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow!.show();
+  mainWindow.once("ready-to-show", () => {
+    mainWindow?.maximize();
+    mainWindow?.show();
   });
 
-  mainWindow.on('minimize', () => {
+  mainWindow.on("minimize", () => {
     if (isMinimizingFromMini) {
       isMinimizingFromMini = false;
       return;
     }
     createMiniWindow();
-    mainWindow!.hide();
+    mainWindow?.hide();
   });
 
-  mainWindow.on('show', () => {
-    mainWindow!.maximize();
-  });
-
-  mainWindow.on('close', (event) => {
+  mainWindow.on("close", (event) => {
     if (!app.isQuitting) {
       event.preventDefault();
-      safeSend(mainWindow, 'before-close'); // ✅ Use safeSend instead of raw send
+      safeSend(mainWindow, "before-close");
     }
   });
-
-  mainWindow.on('closed', () => {
+  mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
 
 // ===== APP LIFECYCLE =====
 app.whenReady().then(async () => {
-  if (process.platform === 'win32') {
-    const iconPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'icon.ico')
-      : path.join(__dirname, '..', 'build', 'icon.ico');
-    app.setAppUserModelId('com.lapwork.desktop');    
-    const icon = nativeImage.createFromPath(iconPath);
-    if (!icon.isEmpty()) {
-      app.dock?.setIcon(icon); 
+  try {
+    if (process.platform === "win32") {
+      app.setAppUserModelId("com.lapwork.app");
+    } else if (process.platform === "darwin") {
+      const icon = nativeImage.createFromPath(getIconPath());
+      if (!icon.isEmpty() && app.dock) app.dock.setIcon(icon);
     }
-  }
 
-  await initDatabase();
-  setupIpcHandlers();
-  createWindow();
-  createTray();
+    try {
+      await initDatabase();
+    } catch (err) {
+      writeCrashLog(
+        `DB init failed completely: ${err instanceof Error ? err.stack : String(err)}`,
+      );
+      dialog.showErrorBox(
+        "lapwork",
+        "Couldn't set up local storage — opening without saved history.",
+      );
+    }
 
-  if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      console.warn('Update check failed:', err);
-    });
-    setInterval(() => {
-      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-        console.warn('Update check failed:', err);
-      });
-    }, 3 * 60 * 60 * 1000);
+    setupIpcHandlers();
+    createWindow();
+    createTray();
+
+    if (app.isPackaged) {
+      try {
+        autoUpdater
+          .checkForUpdatesAndNotify()
+          .catch((err) => console.warn("Update check failed:", err));
+        updateInterval = setInterval(
+          () =>
+            autoUpdater
+              .checkForUpdatesAndNotify()
+              .catch((err) => console.warn("Update check failed:", err)),
+          3 * 60 * 60 * 1000,
+        );
+      } catch (err) {
+        writeCrashLog(
+          `Auto-updater setup failed: ${err instanceof Error ? err.stack : String(err)}`,
+        );
+      }
+    }
+  } catch (err) {
+    const msg = `Startup failed: ${err instanceof Error ? err.stack : String(err)}`;
+    console.error("[MAIN]", msg);
+    writeCrashLog(msg);
   }
 });
 
-app.on('before-quit', () => {
+app.on("before-quit", () => {
   app.isQuitting = true;
-  globalShortcut.unregisterAll();
+  if (updateInterval) {
+    clearInterval(updateInterval);
+    updateInterval = null;
+  }
   if (miniWindow && !miniWindow.isDestroyed()) miniWindow.close();
-  if (db) db.close();
+
+  try {
+    saveDatabase();
+  } catch (err) {
+    writeCrashLog(
+      `Final save on quit failed: ${err instanceof Error ? err.stack : String(err)}`,
+    );
+  }
+
+  if (db) {
+    try {
+      db.close();
+    } catch {}
+  }
 });

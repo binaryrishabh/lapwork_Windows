@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { formatMs } from '../utils/formatTime';
 import HelpTooltip from './HelpTooltip';
+import { IconTarget } from './icons';
 
-// ===== TypeScript Interfaces =====
 interface Distraction {
   name?: string;
   durationMs?: number;
@@ -37,7 +37,6 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
   const now = new Date();
   const isMonday = now.getDay() === 1;
 
-  // ✅ Extract class names here before TypeScript narrows the type in the if-blocks
   const dailyBtnClass = `chart-toggle-btn ${rangeType === 'daily' ? 'active' : ''}`;
   const weeklyBtnClass = `chart-toggle-btn ${rangeType === 'weekly' ? 'active' : ''}`;
 
@@ -45,44 +44,36 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
     if (!sessions || sessions.length === 0) return null;
 
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
     let filteredSessions: Session[] = [];
 
     if (rangeType === 'daily') {
-      // Today only
       filteredSessions = sessions.filter(s => {
         const d = (s.date || '').split('T')[0];
         return d === todayStr;
       });
     } else {
-      // This week (Monday to today)
-      const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+      const dayOfWeek = now.getDay();
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
       const monday = new Date(now);
       monday.setDate(now.getDate() + mondayOffset);
       const mondayStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
-
       filteredSessions = sessions.filter(s => {
         const d = (s.date || '').split('T')[0];
         return d >= mondayStr && d <= todayStr;
       });
     }
 
-    // Aggregate distractions by name
     const distractionMap: Record<string, Category> = {};
     let totalProductiveMs = 0;
     let totalDistractedMs = 0;
 
     filteredSessions.forEach(s => {
       totalProductiveMs += Number(s.totalMs || s.total_ms || 0);
-
       (s.distractions || []).forEach(d => {
         const name = (d.name || 'Unnamed').trim();
         const durationMs = Number(d.durationMs || d.duration_ms || 0);
-
         if (!name) return;
         totalDistractedMs += durationMs;
-
         if (!distractionMap[name]) {
           distractionMap[name] = { name, totalMs: 0, count: 0 };
         }
@@ -91,9 +82,7 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
       });
     });
 
-    const categories = Object.values(distractionMap)
-      .sort((a, b) => b.totalMs - a.totalMs);
-
+    const categories = Object.values(distractionMap).sort((a, b) => b.totalMs - a.totalMs);
     const totalTime = totalProductiveMs + totalDistractedMs;
 
     return {
@@ -111,22 +100,12 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
         <div className="chart-header">
           <h3 className="chart-title">Distraction Breakdown</h3>
           <div className="chart-toggle-group">
-            <button
-              className={dailyBtnClass}
-              onClick={() => setRangeType('daily')}
-            >
-              Today
-            </button>
-            <button
-              className={weeklyBtnClass}
-              onClick={() => setRangeType('weekly')}
-            >
-              This Week
-            </button>
+            <button className={dailyBtnClass} onClick={() => setRangeType('daily')}>Today</button>
+            <button className={weeklyBtnClass} onClick={() => setRangeType('weekly')}>This Week</button>
           </div>
         </div>
         <div className="distraction-empty">
-          <span className="distraction-empty-icon">📅</span>
+          <div className="distraction-empty-icon"><IconTarget size={20} /></div>
           <p>It's Monday!</p>
           <p className="distraction-empty-hint">This Week is the same as Today. Switch to Today view or check back later in the week.</p>
         </div>
@@ -140,22 +119,12 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
         <div className="chart-header">
           <h3 className="chart-title">Distraction Breakdown</h3>
           <div className="chart-toggle-group">
-            <button
-              className={`chart-toggle-btn ${rangeType === 'daily' ? 'active' : ''}`}
-              onClick={() => setRangeType('daily')}
-            >
-              Today
-            </button>
-            <button
-              className={`chart-toggle-btn ${rangeType === 'weekly' ? 'active' : ''}`}
-              onClick={() => setRangeType('weekly')}
-            >
-              This Week
-            </button>
+            <button className={`chart-toggle-btn ${rangeType === 'daily' ? 'active' : ''}`} onClick={() => setRangeType('daily')}>Today</button>
+            <button className={`chart-toggle-btn ${rangeType === 'weekly' ? 'active' : ''}`} onClick={() => setRangeType('weekly')}>This Week</button>
           </div>
         </div>
         <div className="distraction-empty">
-          <span className="distraction-empty-icon">🎯</span>
+          <div className="distraction-empty-icon"><IconTarget size={20} /></div>
           <p>No distractions tracked {rangeType === 'daily' ? 'today' : 'this week'}</p>
           <p className="distraction-empty-hint">Use the distraction timer during sessions to see data here.</p>
         </div>
@@ -165,7 +134,6 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
 
   const { categories, totalProductiveMs, totalDistractedMs, totalTime } = breakdown;
 
-  // Donut chart calculations
   const size = 180;
   const strokeWidth = 32;
   const radius = (size - strokeWidth) / 2;
@@ -173,8 +141,7 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
   const center = size / 2;
 
   const sliceColors: string[] = [
-    '#ff9800', '#f44336', '#e91e63', '#9c27b0',
-    '#ff5722', '#ff7043', '#ef5350', '#ec407a',
+    '#8A85A0', '#6B6585', '#55507A', '#3D3854', '#A8A3C0', '#4A4463',
   ];
 
   let cumulativePercent = 0;
@@ -196,7 +163,7 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
     totalMs: totalProductiveMs,
     count: 0,
     percent: productivePercent,
-    color: '#4caf50',
+    color: 'var(--primary-glow)',
     offset: cumulativePercent,
   });
 
@@ -208,29 +175,16 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
           <HelpTooltip text={`Shows how your ${rangeType === 'daily' ? "today's" : "this week's"} time is split between productive work and each distraction category.`} />
         </h3>
         <div className="chart-toggle-group">
-          <button
-            className={`chart-toggle-btn ${rangeType === 'daily' ? 'active' : ''}`}
-            onClick={() => setRangeType('daily')}
-          >
-            Today
-          </button>
-          <button
-            className={`chart-toggle-btn ${rangeType === 'weekly' ? 'active' : ''}`}
-            onClick={() => setRangeType('weekly')}
-          >
-            This Week
-          </button>
+          <button className={`chart-toggle-btn ${rangeType === 'daily' ? 'active' : ''}`} onClick={() => setRangeType('daily')}>Today</button>
+          <button className={`chart-toggle-btn ${rangeType === 'weekly' ? 'active' : ''}`} onClick={() => setRangeType('weekly')}>This Week</button>
         </div>
       </div>
-
       <div className="distraction-layout">
-        {/* Donut Chart */}
         <div className="distraction-donut-wrapper">
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="distraction-donut">
             {segments.map((seg, i) => {
               const dashArray = (seg.percent * circumference);
               const dashOffset = -(seg.offset * circumference);
-
               return (
                 <circle
                   key={i}
@@ -256,8 +210,6 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
             </text>
           </svg>
         </div>
-
-        {/* Legend */}
         <div className="distraction-legend">
           {segments.map((seg, i) => (
             <div key={i} className={`distraction-legend-item ${seg.name === 'Productive' ? 'productive' : ''}`}>
@@ -278,7 +230,6 @@ function DistractionBreakdown({ sessions }: DistractionBreakdownProps) {
           ))}
         </div>
       </div>
-
       <div className="distraction-total-bar">
         <div className="distraction-total-label">Total time: {formatMs(totalTime)}</div>
         <div className="distraction-total-track">

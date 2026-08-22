@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Tray state
   updateRunningState: (running: boolean, elapsedMs: number, isDistracted: boolean, distractionName: string, distractionElapsed: number) =>
-    ipcRenderer.invoke('update-running-state', running, elapsedMs, isDistracted, distractionName, distractionElapsed),
+    ipcRenderer.send('update-running-state', running, elapsedMs, isDistracted, distractionName, distractionElapsed),
 
   // Close confirmation
   onBeforeClose: (callback: () => void) => {

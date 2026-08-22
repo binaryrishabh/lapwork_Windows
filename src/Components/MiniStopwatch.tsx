@@ -1,5 +1,6 @@
 import logo from "../assets/logo.png";
 import React, { useState, useEffect, useRef } from 'react';
+import { IconPlay, IconPause, IconFlag, IconChevronDown, IconChevronUp, IconX } from './icons';
 
 function MiniStopwatch() {
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -14,10 +15,8 @@ function MiniStopwatch() {
   const [isFocused, setIsFocused] = useState(true);
 
   const accumulatedRef = useRef(0);
-
   const isDistractedMiniRef = useRef(false);
   const isRunningRef = useRef(false);
-
   const distractionAccumulatedMiniRef = useRef(0);
   const startTimeRef = useRef<number | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -47,9 +46,6 @@ function MiniStopwatch() {
     }
   };
 
-
-
-  // Focus window on mouse click anywhere
   useEffect(() => {
     const handleMouseDown = () => {
       if (window.electronAPI) {
@@ -73,7 +69,6 @@ function MiniStopwatch() {
     };
   }, []);
 
-  // Listen for state updates from main window
   useEffect(() => {
     const handleStateUpdate = (data) => {
       setIsDistractedMini(data.isDistracted || false);
@@ -85,7 +80,6 @@ function MiniStopwatch() {
         setDistractionName(data.distractionName);
       }
 
-      // Sync distraction timer — run locally from synced value
       if (data.isDistracted) {
         distractionAccumulatedMiniRef.current = data.distractionElapsed || 0;
         distractionStartRefMini.current = performance.now();
@@ -131,7 +125,6 @@ function MiniStopwatch() {
     if (window.electronAPI) {
       window.electronAPI.onStopwatchStateUpdate(handleStateUpdate);
     }
-
     return () => {
       if (window.electronAPI) {
         window.electronAPI.removeStopwatchStateListener();
@@ -145,13 +138,11 @@ function MiniStopwatch() {
     };
   }, []);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
         return;
       }
-
       switch (e.code) {
         case 'Space':
           e.preventDefault();
@@ -159,11 +150,9 @@ function MiniStopwatch() {
             window.electronAPI.sendStopwatchCommand('toggle');
           }
           break;
-
         case 'KeyD':
           e.preventDefault();
           if (!isRunning) break;
-
           if (!isDistractedMini) {
             if (window.electronAPI) {
               window.electronAPI.sendStopwatchCommand('d');
@@ -176,7 +165,6 @@ function MiniStopwatch() {
             }, 100);
           }
           break;
-
         case 'KeyR':
           if (e.ctrlKey) {
             e.preventDefault();
@@ -185,14 +173,12 @@ function MiniStopwatch() {
             }
           }
           break;
-
         case 'KeyS':
           if (e.ctrlKey) {
             e.preventDefault();
             const currentElapsed = startTimeRef.current
               ? accumulatedRef.current + (performance.now() - startTimeRef.current)
               : accumulatedRef.current;
-
             if (currentElapsed < 30000) {
               if (warningTimeoutRef.current) {
                 window.clearTimeout(warningTimeoutRef.current);
@@ -215,39 +201,32 @@ function MiniStopwatch() {
             }
           }
           break;
-
         case 'KeyF':
           e.preventDefault();
           restoreMain();
           break;
-
         case 'ArrowDown':
           e.preventDefault();
           if (!collapsed) setCollapsed(true);
           break;
-
         case 'ArrowUp':
           e.preventDefault();
           if (collapsed) {
             setCollapsed(false);
           } else {
-            // Force restore main
             if (window.electronAPI) {
               window.electronAPI.restoreMainWindow();
             }
           }
           break;
-
         default:
           break;
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isRunning, isDistractedMini, showDistractionInput, collapsed]);
 
-  // Force close input when save happens
   useEffect(() => {
     if (saveMessage && showDistractionInput) {
       setShowDistractionInput(false);
@@ -255,7 +234,6 @@ function MiniStopwatch() {
     }
   }, [saveMessage, showDistractionInput]);
 
-  // Resize mini window
   useEffect(() => {
     if (window.electronAPI) {
       if (collapsed) {
@@ -282,20 +260,16 @@ function MiniStopwatch() {
     }
   }, [warning, saveMessage, showDistractionInput, isDistractedMini, collapsed]);
 
-  // Restore main window
   const restoreMain = () => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
     }
-
     const currentElapsed = startTimeRef.current
       ? accumulatedRef.current + (performance.now() - startTimeRef.current)
       : accumulatedRef.current;
-
     accumulatedRef.current = currentElapsed;
     startTimeRef.current = null;
-
     if (window.electronAPI) {
       window.electronAPI.sendElapsedToMain(Math.round(currentElapsed));
       window.setTimeout(() => {
@@ -304,12 +278,10 @@ function MiniStopwatch() {
     }
   };
 
-  // Close button
   const closeMiniWindow = () => {
     const currentElapsed = startTimeRef.current
       ? accumulatedRef.current + (performance.now() - startTimeRef.current)
       : accumulatedRef.current;
-
     if (currentElapsed === 0) {
       if (window.electronAPI) {
         window.electronAPI.confirmQuit();
@@ -321,7 +293,6 @@ function MiniStopwatch() {
       }
       accumulatedRef.current = currentElapsed;
       startTimeRef.current = null;
-
       if (window.electronAPI) {
         window.electronAPI.sendElapsedToMain(Math.round(currentElapsed));
         window.setTimeout(() => {
@@ -331,44 +302,36 @@ function MiniStopwatch() {
     }
   };
 
-  // Minimize to tray
   const minimizeToTray = () => {
     if (window.electronAPI) {
       window.electronAPI.minimizeToTray();
     }
   };
 
-  // Toggle stopwatch
   const toggleStopwatch = () => {
     if (window.electronAPI) {
       window.electronAPI.sendStopwatchCommand('toggle');
     }
   };
 
-  // Submit distraction name
   const submitDistraction = () => {
     const input = document.querySelector('.mini-distraction-input') as HTMLInputElement | null;
     const name = input?.value?.trim() || 'Distraction';
-
     if (window.electronAPI) {
       window.electronAPI.sendDistractionWithName(name);
     }
-
     setDistractionName('');
     setShowDistractionInput(false);
   };
 
   return (
     <div className={`mini-container ${!isFocused ? 'unfocused' : ''}`} onMouseDown={() => { if (window.electronAPI) window.electronAPI.focusMiniWindow(); }}>
-      {/* Draggable header — hidden when collapsed */}
       {!collapsed && (
         <div className="mini-header">
           <span className="mini-title"><img src={logo} alt="" className="mini-logo" />lapwork</span>
           <div className="mini-header-actions">
-            <button className="mini-btn-icon mini-btn-collapse" onClick={() => setCollapsed(true)} title="Collapse (↓)">
-              <svg width="10" height="6" viewBox="0 0 10 6">
-                <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+            <button className="mini-btn-icon mini-btn-collapse" onClick={() => setCollapsed(true)} title="Collapse">
+              <IconChevronDown size={10} />
             </button>
             <button className="mini-btn-icon mini-btn-minimize" onClick={minimizeToTray} title="Minimize to taskbar">
               <svg width="12" height="2" viewBox="0 0 12 2">
@@ -378,39 +341,32 @@ function MiniStopwatch() {
             <button className="mini-btn-icon mini-btn-restore-icon" onClick={restoreMain} title="Restore window">
               <svg width="11" height="11" viewBox="0 0 11 11">
                 <rect x="3" y="0" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.3"/>
-                <rect x="0" y="3" width="8" height="8" rx="1.5" fill="#1a1a1a" stroke="currentColor" strokeWidth="1.3"/>
-                <rect x="3" y="3" width="5" height="5" fill="#1a1a1a"/>
+                <rect x="0" y="3" width="8" height="8" rx="1.5" fill="var(--bg-elevated)" stroke="currentColor" strokeWidth="1.3"/>
+                <rect x="3" y="3" width="5" height="5" fill="var(--bg-elevated)"/>
               </svg>
             </button>
             <button className="mini-btn-icon mini-btn-close-icon" onClick={closeMiniWindow} title="Close">
-              <svg width="10" height="10" viewBox="0 0 10 10">
-                <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
+              <IconX size={10} />
             </button>
           </div>
         </div>
       )}
 
-      {/* Collapsed strip */}
       {collapsed && (
         <div className="mini-collapsed-strip" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} onMouseDown={() => { if (window.electronAPI) window.electronAPI.focusMiniWindow(); }}>
           <div className="mini-collapsed-left">
-            <span className="mini-collapsed-dot-mini" style={{ backgroundColor: isRunning ? '#4caf50' : '#444', boxShadow: isRunning ? '0 0 6px rgba(76,175,80,0.5)' : 'none' }} />
+            <span className={`mini-collapsed-dot-mini ${isRunning ? 'running' : 'stopped'}`} />
             {isDistractedMini && (
-              <span className="mini-collapsed-dot-mini" style={{ backgroundColor: '#ff9800', boxShadow: '0 0 4px rgba(255,152,0,0.4)' }} />
+              <span className="mini-collapsed-dot-mini distracted" />
             )}
             <span className="mini-collapsed-time">{formatTime(elapsedMs)}</span>
           </div>
-          <button className="mini-btn-icon" onClick={() => setCollapsed(false)} title="Expand (↑)" style={{ width: 28, height: 28, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <svg width="10" height="6" viewBox="0 0 10 6" style={{ transform: 'rotate(180deg)' }}>
-              <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <button className="mini-btn-icon" onClick={() => setCollapsed(false)} title="Expand" style={{ width: 28, height: 28, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <IconChevronUp size={10} />
           </button>
         </div>
       )}
 
-      {/* Expanded content */}
       {!collapsed && (
         <>
           <div className={`mini-timer ${isRunning ? 'running' : ''}`}>
@@ -421,29 +377,51 @@ function MiniStopwatch() {
             </div>
             {isDistractedMini && (
               <div className={`mini-distracted-badge ${!isRunning ? 'paused' : ''}`}>
-                🚩 Distracted · {formatDistractionTime(distractionElapsedMini)}
+                <IconFlag size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+                Distracted · {formatDistractionTime(distractionElapsedMini)}
               </div>
             )}
           </div>
-
           {warning && warning.trim().length > 0 && (
-            <div className="mini-warning">⚠️ {warning}</div>
+            <div className="mini-warning">{warning}</div>
           )}
-
           {saveMessage && saveMessage.trim().length > 0 && (
-            <div className="mini-save-toast">✅ {saveMessage}</div>
+            <div className="mini-save-toast">{saveMessage}</div>
           )}
-
           {showDistractionInput && (
             <div className="mini-distraction-popup">
-              <input type="text" className="mini-distraction-input" placeholder="Distraction name..." value={distractionName} onChange={(e) => setDistractionName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && isRunning) { e.preventDefault(); submitDistraction(); } if (e.key === 'Escape') { setShowDistractionInput(false); setDistractionName(''); } }} autoFocus disabled={!isRunning} />
-              <button className="mini-distraction-submit" onClick={submitDistraction} disabled={!isRunning} style={{ opacity: isRunning ? 1 : 0.4 }}>Save</button>
+              <input
+                type="text"
+                className="mini-distraction-input"
+                placeholder="Distraction name..."
+                value={distractionName}
+                onChange={(e) => setDistractionName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && isRunning) {
+                    e.preventDefault();
+                    submitDistraction();
+                  }
+                  if (e.key === 'Escape') {
+                    setShowDistractionInput(false);
+                    setDistractionName('');
+                  }
+                }}
+                autoFocus
+                disabled={!isRunning}
+              />
+              <button
+                className="mini-distraction-submit"
+                onClick={submitDistraction}
+                disabled={!isRunning}
+                style={{ opacity: isRunning ? 1 : 0.4 }}
+              >
+                Save
+              </button>
             </div>
           )}
-
           <div className="mini-controls">
             <button className={`mini-btn mini-btn-toggle ${isRunning ? 'stop' : 'start'}`} onClick={toggleStopwatch}>
-              {isRunning ? '⏸ Stop' : '▶ Start'}
+              {isRunning ? <><IconPause size={12} /> Pause</> : <><IconPlay size={12} /> Start</>}
             </button>
           </div>
         </>

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import MiniStopwatch from './Components/MiniStopwatch';
+import './styles/theme.css';
 import './mini.css';
 
 const root = ReactDOM.createRoot(document.getElementById('mini-root'));

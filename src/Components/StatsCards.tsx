@@ -1,14 +1,7 @@
 import React from 'react';
 import { formatMs } from '../utils/formatTime';
 import HelpTooltip from './HelpTooltip';
-
-const getFocusEmoji = (rate, totalMs) => {
-  if (totalMs === 0) return { emoji: '😴', label: 'No data', color: '#666' };
-  if (rate >= 75) return { emoji: '🔥', label: 'Excellent', color: '#4caf50' };
-  if (rate >= 50) return { emoji: '🙂', label: 'Good', color: '#8bc34a' };
-  if (rate >= 25) return { emoji: '😐', label: 'Fair', color: '#ff9800' };
-  return { emoji: '😢', label: 'Needs work', color: '#f44336' };
-};
+import { IconTimer, IconChart, IconTarget } from './icons';
 
 function StatsCards({ stats, chartType }) {
   if (!stats) {
@@ -24,10 +17,27 @@ function StatsCards({ stats, chartType }) {
   };
 
   const totalTimeMs = safeStats.totalMs + safeStats.totalDistractedMs;
-
   const periodLabel = chartType === 'weekly' ? 'this week' : chartType === 'monthly' ? 'this month' : 'this year';
 
-    const cards = [
+  const getFocusColor = (rate, total) => {
+    if (total === 0) return 'var(--text-muted)';
+    if (rate >= 75) return 'var(--success)';
+    if (rate >= 50) return 'var(--warning)';
+    return 'var(--error)';
+  };
+
+  const getFocusLabel = (rate, total) => {
+    if (total === 0) return 'No data';
+    if (rate >= 75) return 'Excellent';
+    if (rate >= 50) return 'Good';
+    if (rate >= 25) return 'Fair';
+    return 'Needs work';
+  };
+
+  const focusColor = getFocusColor(totalTimeMs > 0 ? safeStats.focusRate : 0, totalTimeMs);
+  const focusLabel = getFocusLabel(totalTimeMs > 0 ? safeStats.focusRate : 0, totalTimeMs);
+
+  const cards = [
     {
       label: 'Total Time',
       labelWithHelp: (
@@ -35,8 +45,7 @@ function StatsCards({ stats, chartType }) {
       ),
       value: formatMs(totalTimeMs),
       sub: `${safeStats.totalSessions} sessions ${periodLabel}`,
-      icon: '⏱',
-      color: '#64b5f6',
+      icon: <IconTimer size={18} />,
     },
     {
       label: 'Avg Session',
@@ -45,46 +54,52 @@ function StatsCards({ stats, chartType }) {
       ),
       value: formatMs(safeStats.avgSessionMs),
       sub: `productive ${periodLabel}`,
-      icon: '📐',
-      color: '#26c6da',
+      icon: <IconChart size={18} />,
     },
-        {
+    {
       label: 'Focus Rate',
       labelWithHelp: (
         <>Focus Rate<HelpTooltip text="Percentage of total time spent productively (not distracted). Higher is better." /></>
       ),
       value: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span className="focus-rate-ring">
           <span>{(totalTimeMs > 0 ? safeStats.focusRate : 0) + '%'}</span>
-          <span className="focus-emoji" title={getFocusEmoji(totalTimeMs > 0 ? safeStats.focusRate : 0, totalTimeMs).label}>
-            {getFocusEmoji(totalTimeMs > 0 ? safeStats.focusRate : 0, totalTimeMs).emoji}
-          </span>
+          <svg width="24" height="24" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" fill="none" stroke="var(--border-subtle)" strokeWidth="3" />
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              stroke={focusColor}
+              strokeWidth="3"
+              strokeDasharray={`${(safeStats.focusRate / 100) * 62.83} 62.83`}
+              strokeLinecap="round"
+              transform="rotate(-90 12 12)"
+            />
+          </svg>
         </span>
       ),
       sub: (
         <span>
           {formatMs(safeStats.totalDistractedMs)} distracted {periodLabel}
-          <span style={{ display: 'block', fontSize: '10px', color: getFocusEmoji(totalTimeMs > 0 ? safeStats.focusRate : 0, totalTimeMs).color, marginTop: '2px' }}>
-            {getFocusEmoji(totalTimeMs > 0 ? safeStats.focusRate : 0, totalTimeMs).label}
+          <span style={{ display: 'block', fontSize: '10px', color: focusColor, marginTop: '2px' }}>
+            {focusLabel}
           </span>
         </span>
       ),
-      icon: '🎯',
-      color: totalTimeMs === 0 ? '#666' : (safeStats.focusRate >= 75 ? '#4caf50' : safeStats.focusRate >= 50 ? '#8bc34a' : safeStats.focusRate >= 25 ? '#ff9800' : '#f44336'),
+      icon: <IconTarget size={18} />,
     },
   ];
-
 
   return (
     <div className="stats-cards-grid three-cards">
       {cards.map((card, i) => (
-        <div key={i} className="stats-card" style={{ borderTop: `3px solid ${card.color}` }}>
+        <div key={i} className="stats-card">
           <div className="stats-card-icon">{card.icon}</div>
           <div className="stats-card-content">
             <div className="stats-card-label">{card.labelWithHelp}</div>
-            <div className="stats-card-value" style={{ color: card.color }}>
-              {card.value}
-            </div>
+            <div className="stats-card-value">{card.value}</div>
             <div className="stats-card-sub">{card.sub}</div>
           </div>
         </div>

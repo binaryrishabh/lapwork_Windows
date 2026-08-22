@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { formatMs } from '../utils/formatTime';
 import HelpTooltip from './HelpTooltip';
 
-// ===== TypeScript Interfaces =====
+
 interface Session {
   date?: string;
   totalMs?: number;
@@ -23,13 +23,13 @@ interface DayData {
   isToday: boolean;
 }
 
-const getColor = (hours: number, maxHours: number): string => {
-  if (hours === 0) return '#1a1a1a';
+const getColorClass = (hours: number, maxHours: number): string => {
+  if (hours === 0) return 'graph-cell-0';
   const ratio = hours / maxHours;
-  if (ratio < 0.25) return '#0e4429';
-  if (ratio < 0.50) return '#006d32';
-  if (ratio < 0.75) return '#26a641';
-  return '#39d353';
+  if (ratio < 0.25) return 'graph-cell-1';
+  if (ratio < 0.50) return 'graph-cell-2';
+  if (ratio < 0.75) return 'graph-cell-3';
+  return 'graph-cell-4';
 };
 
 const getLocalDateStr = (date: Date): string => {
@@ -40,17 +40,17 @@ const getLocalDateStr = (date: Date): string => {
 };
 
 function ContributionGraph({ sessions }: ContributionGraphProps) {
-  // ✅ Typed ref
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to today on mount (Removed duplicate useEffect)
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
     }
   }, []);
 
-  // Convert vertical mouse scroll to horizontal scroll
+
   useEffect(() => {
     const wrapper = scrollRef.current;
     if (!wrapper) return;
@@ -65,7 +65,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
   }, []);
 
   const { columns, monthLabels, maxHours, totalHours, totalMs, totalDays, currentStreak, maxStreak, svgWidth } = useMemo(() => {
-    // ✅ Explicitly type the map so Object.values() returns number[] instead of unknown[]
+
     const sessionsMap: Record<string, number> = {};
     sessions.forEach((session) => {
       const dateStr = session.date ? session.date.split('T')[0] : null;
@@ -81,6 +81,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
     const endSunday = new Date(today);
     endSunday.setDate(today.getDate() - today.getDay());
     endSunday.setHours(0, 0, 0, 0);
+
     const startDate = new Date(endSunday);
     startDate.setDate(endSunday.getDate() - 52 * 7);
 
@@ -101,7 +102,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
       d.setDate(d.getDate() + 1);
     }
 
-    // Group into columns by month
+
     const columns: (DayData | null)[][] = [];
     let i = 0;
     while (i < allDays.length) {
@@ -122,12 +123,11 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
       columns.push(column);
     }
 
-    // Build month labels with start/end columns
+
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const monthRanges: { startCol: number; endCol: number; label: string }[] = [];
     let currentMY = '';
 
-    
     columns.forEach((col, idx) => {
       const day = col.find(d => d !== null);
       if (!day) return;
@@ -149,19 +149,18 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
       label: mr.label,
     }));
 
-    // Stats
+
     const allMsVals = Object.values(sessionsMap);
     const maxMs = Math.max(1, ...allMsVals, 1000);
     const totalMs = allMsVals.reduce((s, v) => s + v, 0);
     const totalDaysCount = allMsVals.length;
-    
-    // Streak: count consecutive days backwards from yesterday
+
 
     let streakCount = 0;
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
     const todayStr2 = getLocalDateStr(todayDate);
-
+    
     const hasToday = sessionsMap[todayStr2] && sessionsMap[todayStr2] > 0;
 
     const checkDate = new Date();
@@ -169,7 +168,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
     if (!hasToday) {
       checkDate.setDate(checkDate.getDate() - 1);
     }
-    
+
     while (true) {
       const ds = getLocalDateStr(checkDate);
       if (sessionsMap[ds] && sessionsMap[ds] > 0) {
@@ -180,20 +179,20 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
       }
     }
 
-    // Max streak: find the longest consecutive streak in the data
+
     let maxStreak = 0;
     let currentRun = 0;
     const allDates = Object.keys(sessionsMap).sort();
-    
+
     for (let i = 0; i < allDates.length; i++) {
       if (i === 0) {
         currentRun = 1;
       } else {
         const prevDate = new Date(allDates[i - 1] + 'T00:00:00');
         const currDate = new Date(allDates[i] + 'T00:00:00');
-        // ✅ FIX: Use .getTime() to subtract Dates as numbers
+
         const diffDays = (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24);
-        
+
         if (diffDays === 1) {
           currentRun++;
         } else {
@@ -205,7 +204,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
       }
     }
 
-    // Sizing
+
     const cellSizeLocal = 14;
     const cellGapLocal = 3;
     const monthGapLocal = 10;
@@ -227,7 +226,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
     };
   }, [sessions]);
 
-  // ✅ Typed state
+
   const [hoveredCell, setHoveredCell] = React.useState<DayData | null>(null);
 
   const cellSize = 14;
@@ -237,7 +236,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
   const graphHeight = 7 * totalCell;
   const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
-  // Calculate X position: column * cellWidth + gaps before this column
+  
   const getX = (colIndex: number) => {
     let gapsBefore = 0;
     for (let j = 1; j < columns.length; j++) {
@@ -262,7 +261,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
     <div className="contribution-container">
       <div className="contribution-header">
         <h3 className="contribution-title">Activity</h3>
-        <HelpTooltip text="Shows your daily tracked time over the past year. Each square is one day. Darker green = more time tracked." />
+        <HelpTooltip text="Shows your daily tracked time over the past year. Each square is one day. Brighter indigo = more time tracked." />
       </div>
       <div className="contribution-stats">
         <div className="contribution-stat">
@@ -282,19 +281,19 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
         <div className="contribution-stat">
           <span className="stat-value">{currentStreak}</span>
           <span className="stat-label">
-            Day streak 🔥
+            Day streak
             <HelpTooltip text="Number of consecutive days (including today if tracked) with at least one session. Resets to 0 if you miss a day." />
           </span>
         </div>
         <div className="contribution-stat">
           <span className="stat-value">{maxStreak}</span>
           <span className="stat-label">
-            Max streak 🏆
+            Max streak
             <HelpTooltip text="Your longest streak of consecutive tracked days across all time. This is your personal best." />
           </span>
         </div>
       </div>
-
+      
       <div className="contribution-graph-wrapper" ref={scrollRef}>
         <div className="graph-scroll-inner">
           <svg width={svgWidth} height={graphHeight + 30} className="contribution-svg">
@@ -323,9 +322,8 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
                     height={cellSize}
                     rx={3}
                     ry={3}
-                    fill={getColor(day.hours, maxHours)}
-                    className="graph-cell"
-                    stroke={day.isToday ? '#64b5f6' : '#0f0f0f'}
+                    className={`graph-cell ${getColorClass(day.hours, maxHours)}`}
+                    stroke={day.isToday ? 'var(--primary-glow)' : 'var(--bg-base)'}
                     strokeWidth={day.isToday ? 2 : 1}
                     onMouseEnter={() => setHoveredCell(day)}
                     onMouseLeave={() => setHoveredCell(null)}
@@ -336,7 +334,7 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
           </svg>
         </div>
       </div>
-
+      
       {hoveredCell && (
         <div className="graph-tooltip">
           <div className="tooltip-date">
@@ -346,11 +344,11 @@ function ContributionGraph({ sessions }: ContributionGraphProps) {
           <div className="tooltip-hours">{formatMs(hoveredCell.ms)}</div>
         </div>
       )}
-
+      
       <div className="graph-legend">
         <span className="legend-label">Less</span>
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
-          <div key={i} className="legend-cell" style={{ backgroundColor: ratio === 0 ? '#1a1a1a' : getColor(ratio * maxHours, maxHours) }} />
+          <div key={i} className={`legend-cell graph-cell-${i}`} />
         ))}
         <span className="legend-label">More</span>
       </div>

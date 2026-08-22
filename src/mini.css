@@ -1,3 +1,7 @@
+/* ==========================================================================
+   LAPWORK — "QUIET INDIGO" · MINI WINDOW STYLES
+   ========================================================================== */
+
 * {
   margin: 0;
   padding: 0;
@@ -12,9 +16,9 @@ html, body {
 }
 
 body {
-  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0f0f0f;
-  color: #e0e0e0;
+  font-family: var(--font-ui);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
   overflow: hidden;
   user-select: none;
 }
@@ -29,8 +33,10 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #0f0f0f;
-  transition: background 0.3s ease;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  transition: all var(--transition);
 }
 
 /* ===== Mini Window Logo ===== */
@@ -40,26 +46,19 @@ body {
   border-radius: 3px;
   vertical-align: -2px;
   margin-right: 5px;
-  object-fit: cover;            /* keeps the logo crisp inside the tiny square */
+  object-fit: cover;
   object-position: center;
   user-select: none;
-  pointer-events: none;         /* never captures clicks */
-  -webkit-user-drag: none;      /* can't be dragged out of the window */
-  transition: opacity 0.3s ease, transform 0.2s ease;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  transition: opacity var(--transition);
 }
 
-/* Align logo + brand name perfectly on one line */
 .mini-title {
   display: inline-flex;
   align-items: center;
 }
 
-/* Gentle pop when hovering the header */
-.mini-header:hover .mini-logo {
-  transform: scale(1.15);
-}
-
-/* Dim the logo with the rest of the chrome when the window is unfocused */
 .mini-container.unfocused .mini-logo {
   opacity: 0.5;
 }
@@ -70,8 +69,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 5px 10px;
-  background: #1a1a1a;
-  border-bottom: 1px solid #252525;
+  background: transparent;
+  border-bottom: 1px solid var(--border-subtle);
   -webkit-app-region: drag;
   cursor: grab;
 }
@@ -83,11 +82,11 @@ body {
 .mini-title {
   font-size: 10px;
   font-weight: 600;
-  color: #888;
+  color: var(--text-muted);
   letter-spacing: 0.5px;
 }
 
-/* ===== Header Action Buttons (Circular) ===== */
+/* ===== Header Action Buttons ===== */
 .mini-header-actions {
   display: flex;
   gap: 6px;
@@ -97,58 +96,38 @@ body {
 .mini-btn-icon {
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: var(--radius-control);
   border: none;
   font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--transition);
   line-height: 1;
-  color: #888;
+  color: var(--text-muted);
   background: transparent;
 }
 
 .mini-btn-icon:hover {
-  transform: scale(1.08);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
-
-/* Minimize button (—) */
-.mini-btn-minimize {
-  color: #888;
-}
 .mini-btn-minimize:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
-/* Restore button (⛶) */
-.mini-btn-restore-icon {
-  color: #888;
-  font-size: 14px;
-}
 .mini-btn-restore-icon:hover {
-  background: rgba(100, 181, 246, 0.15);
-  color: #64b5f6;
+  color: var(--primary-glow);
 }
 
-/* Close button (✕) */
-.mini-btn-close-icon {
-  color: #888;
-  font-size: 14px;
-}
 .mini-btn-close-icon:hover {
-  background: rgba(244, 67, 54, 0.2);
-  color: #ef5350;
+  color: var(--error);
 }
 
-/* Removes the orange focus */
-.mini-btn-icon:focus,
-.mini-btn-icon:focus-visible {
+.mini-btn-icon:focus:not(:focus-visible) {
   outline: none;
-  box-shadow: none;
 }
 
 
@@ -161,43 +140,45 @@ body {
   justify-content: center;
   gap: 6px;
   padding: 16px;
-  background: radial-gradient(ellipse at center top, rgba(255,255,255,0.02) 0%, transparent 70%);
 }
 
 .mini-time {
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 300;
-  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  letter-spacing: 2px;
-  color: #ffffff;
-  transition: color 0.3s;
-}
-
-.mini-timer.running .mini-time {
-  color: #a5d6a7;
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  transition: color var(--transition);
 }
 
 .mini-status {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 2px;
-  color: #555;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 6px;
+  text-transform: uppercase;
 }
 
 .mini-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #444;
-  transition: all 0.3s;
+  background: var(--text-muted);
+  transition: all var(--transition);
 }
 
 .mini-dot.active {
-  background: #4caf50;
-  box-shadow: 0 0 6px rgba(76, 175, 80, 0.5);
+  background: var(--primary-glow);
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* ===== Bottom Controls ===== */
@@ -205,100 +186,74 @@ body {
   display: flex;
   gap: 8px;
   padding: 12px;
-  border-top: 1px solid #1e1e1e;
-  border-top: 1px solid rgba(30, 30, 30, 0.5);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .mini-btn {
   flex: 1;
   padding: 10px 0;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition);
   letter-spacing: 0.3px;
   -webkit-app-region: no-drag;
+  background: transparent;
+  color: var(--text-secondary);
 }
 
 .mini-btn:active {
   transform: scale(0.97);
 }
 
-.mini-btn:focus,
-.mini-btn:focus-visible {
+.mini-btn:focus:not(:focus-visible) {
   outline: none;
-  box-shadow: none;
 }
 
 .mini-btn-toggle.start {
-  background: #1b5e20;
-  border: 1px solid #2e7d32;
-  color: #a5d6a7;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
 }
 
 .mini-btn-toggle.start:hover {
-  background: #2e7d32;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .mini-btn-toggle.stop {
-  background: #b71c1c;
-  border: 1px solid #c62828;
-  color: #ef9a9a;
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .mini-btn-toggle.stop:hover {
-  background: #c62828;
+  background: var(--bg-hover);
 }
 
 /* ===== Warning Toast ===== */
 .mini-warning {
   margin: 0 12px;
   padding: 8px 12px;
-  background: rgba(255, 152, 0, 0.12);
-  border: 1px solid rgba(255, 152, 0, 0.3);
-  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: var(--radius-control);
   font-size: 11px;
-  color: #ffcc80;
+  color: var(--warning);
   text-align: center;
-  animation: miniWarningIn 0.25s ease;
-}
-
-
-@keyframes miniWarningIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ===== Save Success Toast ===== */
 .mini-save-toast {
   margin: 0 12px;
   padding: 8px 12px;
-  background: rgba(76, 175, 80, 0.12);
-  border: 1px solid rgba(76, 175, 80, 0.3);
-  border-radius: 8px;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  border-radius: var(--radius-control);
   font-size: 11px;
-  color: #a5d6a7;
+  color: var(--success);
   text-align: center;
-  animation: miniSaveIn 0.25s ease;
-}
-
-@keyframes miniSaveIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ===== Distraction Input Popup ===== */
@@ -306,97 +261,77 @@ body {
   margin: 0 12px 8px;
   display: flex;
   gap: 6px;
-  animation: miniWarningIn 0.2s ease;
   flex-shrink: 0;
 }
 
 .mini-distraction-input {
   flex: 1;
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
   padding: 7px 10px;
-  color: #ffcc80;
+  color: var(--text-primary);
   font-size: 11px;
   font-family: inherit;
   outline: none;
+  transition: border-color var(--transition);
 }
 
 .mini-distraction-input:focus {
-  border-color: #ff9800;
+  border-color: var(--warning);
 }
 
 .mini-distraction-input::placeholder {
-  color: #555;
+  color: var(--text-muted);
 }
 
 .mini-distraction-submit {
-  background: #e65100;
+  background: var(--warning);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 7px 12px;
-  color: #ffcc80;
+  color: #000;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s;
+  transition: background var(--transition);
 }
 
 .mini-distraction-submit:hover {
-  background: #ff6d00;
+  opacity: 0.9;
 }
 
 /* ===== Distraction Running Badge ===== */
 .mini-distracted-badge {
   margin-top: 4px;
   padding: 4px 10px;
-  background: rgba(255, 152, 0, 0.12);
-  border: 1px solid rgba(255, 152, 0, 0.3);
-  border-radius: 12px;
+  background: rgba(255, 138, 101, 0.12);
+  border: 1px solid rgba(255, 138, 101, 0.4);
+  border-radius: var(--radius-pill);
   font-size: 9px;
   font-weight: 600;
-  color: #ffcc80;
+  color: var(--accent-warm);
   letter-spacing: 0.5px;
-  animation: distractedPulse 2s ease-in-out infinite;
+  font-family: var(--font-mono);
 }
 
-/* Dull version when timer is stopped */
 .mini-distracted-badge.paused {
   opacity: 0.5;
-  animation: none;
-  border-color: rgba(255, 152, 0, 0.15);
-  color: #996600;
-}
-
-@keyframes distractedPulse {
-  0%, 100% { box-shadow: 0 0 4px rgba(255, 152, 0, 0.2); }
-  50% { box-shadow: 0 0 10px rgba(255, 152, 0, 0.4); }
-}
-
-.mini-distracted-badge {
-  margin-top: 4px;
-  padding: 4px 10px;
-  background: rgba(255, 152, 0, 0.12);
-  border: 1px solid rgba(255, 152, 0, 0.3);
-  border-radius: 12px;
-  font-size: 9px;
-  font-weight: 600;
-  color: #ffcc80;
-  letter-spacing: 0.5px;
-  animation: distractedPulse 2s ease-in-out infinite;
-  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  border-color: rgba(255, 138, 101, 0.15);
+  color: var(--text-muted);
 }
 
 /* ===== Collapse/Expand Button ===== */
 .mini-btn-collapse {
-  color: #888;
+  color: var(--text-muted);
   width: 28px;
   height: 28px;
 }
+
 .mini-btn-collapse:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ccc;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .mini-collapsed-left {
@@ -404,7 +339,6 @@ body {
   align-items: center;
   gap: 4px;
 }
-
 
 .mini-collapsed-strip {
   display: flex;
@@ -417,8 +351,9 @@ body {
 .mini-collapsed-time {
   font-size: 12px;
   font-weight: 400;
-  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  color: #e0e0e0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }
 
 .mini-collapsed-dot-mini {
@@ -428,6 +363,18 @@ body {
   flex-shrink: 0;
 }
 
+.mini-collapsed-dot-mini.running {
+  background: var(--primary-glow);
+}
+
+.mini-collapsed-dot-mini.distracted {
+  background: var(--accent-warm);
+}
+
+.mini-collapsed-dot-mini.stopped {
+  background: var(--text-muted);
+}
+
 /* ===== Unfocused Translucency ===== */
 .mini-container.unfocused .mini-header,
 .mini-container.unfocused .mini-controls,
@@ -435,10 +382,9 @@ body {
 .mini-container.unfocused .mini-save-toast,
 .mini-container.unfocused .mini-distraction-popup {
   opacity: 0.3;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--transition);
 }
 
-/* Keep these bright when unfocused */
 .mini-container.unfocused .mini-collapsed-strip {
   opacity: 1 !important;
 }
@@ -453,12 +399,4 @@ body {
 .mini-container.unfocused .mini-collapsed-time,
 .mini-container.unfocused .mini-distracted-badge {
   opacity: 1 !important;
-}
-
-.mini-btn-maximize {
-  color: #888;
-}
-.mini-btn-maximize:hover {
-  background: rgba(100, 181, 246, 0.15);
-  color: #64b5f6;
 }
