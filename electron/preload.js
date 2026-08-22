@@ -67,5 +67,17 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   },
   focusMiniWindow: () => import_electron.ipcRenderer.send("focus-mini-window"),
   setMiniMaxSize: (width, height) => import_electron.ipcRenderer.invoke("set-mini-max-size", width, height),
-  setMiniMinSize: (width, height) => import_electron.ipcRenderer.invoke("set-mini-min-size", width, height)
+  setMiniMinSize: (width, height) => import_electron.ipcRenderer.invoke("set-mini-min-size", width, height),
+  onUpdateAvailable: (callback) => {
+    import_electron.ipcRenderer.on("update-available", (_event, data) => callback(data));
+  },
+  onUpdateProgress: (callback) => {
+    import_electron.ipcRenderer.on("update-progress", (_event, data) => callback(data));
+  },
+  onUpdateDownloaded: (callback) => {
+    import_electron.ipcRenderer.on("update-downloaded", (_event, data) => callback(data));
+  },
+  installUpdateAndRestart: () => {
+    import_electron.ipcRenderer.send("install-update-and-restart");
+  }
 });

@@ -423,6 +423,9 @@ function setupIpcHandlers() {
     if (miniWindow && !miniWindow.isDestroyed())
       miniWindow.focus();
   });
+  import_electron.ipcMain.on("install-update-and-restart", () => {
+    import_electron_updater.autoUpdater.quitAndInstall(false, true);
+  });
 }
 function attachRenderGuards(win) {
   let failures = 0;
@@ -563,12 +566,39 @@ import_electron.app.whenReady().then(async () => {
     createWindow();
     createTray();
     if (import_electron.app.isPackaged) {
-      try {
-        import_electron_updater.autoUpdater.checkForUpdatesAndNotify().catch((err) => console.warn("Update check failed:", err));
-        updateInterval = setInterval(() => import_electron_updater.autoUpdater.checkForUpdatesAndNotify().catch((err) => console.warn("Update check failed:", err)), 10800000);
-      } catch (err) {
-        writeCrashLog(`Auto-updater setup failed: ${err instanceof Error ? err.stack : String(err)}`);
-      }
+      import_electron_updater.autoUpdater.autoDownload = true;
+      import_electron_updater.autoUpdater.autoInstallOnAppQuit = true;
+      import_electron_updater.autoUpdater.on("checking-for-update", () => {
+        console.log("[UPDATER] Checking for updates...");
+      });
+      import_electron_updater.autoUpdater.on("update-available", (info) => {
+        console.log("[UPDATER] Update available:", info.version);
+        safeSend(mainWindow, "update-available", { version: info.version });
+      });
+      import_electron_updater.autoUpdater.on("download-progress", (progress) => {
+        safeSend(mainWindow, "update-progress", {
+          percent: Math.round(progress.percent)
+        });
+      });
+      import_electron_updater.autoUpdater.on("update-downloaded", (info) => {
+        console.log("[UPDATER] Update downloaded:", info.version);
+        safeSend(mainWindow, "update-downloaded", { version: info.version });
+      });
+      import_electron_updater.autoUpdater.on("update-not-available", () => {
+        console.log("[UPDATER] Already on latest version.");
+      });
+      import_electron_updater.autoUpdater.on("error", (err) => {
+        console.warn("[UPDATER] Error:", err);
+        writeCrashLog(`Updater error: ${err}`);
+      });
+      import_electron_updater.autoUpdater.checkForUpdates().catch((err) => {
+        console.warn("Update check failed:", err);
+      });
+      updateInterval = setInterval(() => {
+        import_electron_updater.autoUpdater.checkForUpdates().catch((err) => {
+          console.warn("Update check failed:", err);
+        });
+      }, 10800000);
     }
   } catch (err) {
     const msg = `Startup failed: ${err instanceof Error ? err.stack : String(err)}`;

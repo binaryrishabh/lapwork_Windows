@@ -541,6 +541,10 @@ function setupIpcHandlers() {
   ipcMain.on("focus-mini-window", () => {
     if (miniWindow && !miniWindow.isDestroyed()) miniWindow.focus();
   });
+
+  ipcMain.on("install-update-and-restart", () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
 }
 
 function attachRenderGuards(win: BrowserWindow) {
@@ -707,22 +711,53 @@ app.whenReady().then(async () => {
     createTray();
 
     if (app.isPackaged) {
-      try {
-        autoUpdater
-          .checkForUpdatesAndNotify()
-          .catch((err) => console.warn("Update check failed:", err));
-        updateInterval = setInterval(
-          () =>
-            autoUpdater
-              .checkForUpdatesAndNotify()
-              .catch((err) => console.warn("Update check failed:", err)),
-          3 * 60 * 60 * 1000,
-        );
-      } catch (err) {
-        writeCrashLog(
-          `Auto-updater setup failed: ${err instanceof Error ? err.stack : String(err)}`,
-        );
-      }
+      // ===== BULLETPROOF AUTO-UPDATER =====
+      autoUpdater.autoDownload = true;
+      autoUpdater.autoInstallOnAppQuit = true;
+
+      autoUpdater.on("checking-for-update", () => {
+        console.log("[UPDATER] Checking for updates...");
+      });
+
+      autoUpdater.on("update-available", (info) => {
+        console.log("[UPDATER] Update available:", info.version);
+        safeSend(mainWindow, "update-available", { version: info.version });
+      });
+
+      autoUpdater.on("download-progress", (progress) => {
+        safeSend(mainWindow, "update-progress", {
+          percent: Math.round(progress.percent),
+        });
+      });
+
+      autoUpdater.on("update-downloaded", (info) => {
+        console.log("[UPDATER] Update downloaded:", info.version);
+        safeSend(mainWindow, "update-downloaded", { version: info.version });
+      });
+
+      autoUpdater.on("update-not-available", () => {
+        console.log("[UPDATER] Already on latest version.");
+      });
+
+      autoUpdater.on("error", (err) => {
+        console.warn("[UPDATER] Error:", err);
+        writeCrashLog(`Updater error: ${err}`);
+      });
+
+      // Initial check on launch
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.warn("Update check failed:", err);
+      });
+
+      // Re-check every 3 hours (so ignored prompts come back)
+      updateInterval = setInterval(
+        () => {
+          autoUpdater.checkForUpdates().catch((err) => {
+            console.warn("Update check failed:", err);
+          });
+        },
+        3 * 60 * 60 * 1000,
+      );
     }
   } catch (err) {
     const msg = `Startup failed: ${err instanceof Error ? err.stack : String(err)}`;
