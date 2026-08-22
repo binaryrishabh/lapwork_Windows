@@ -100,7 +100,23 @@ function getIconPath() {
 async function initDatabase() {
   const sqlModule = await import("sql.js");
   const initSqlJs = sqlModule.default || sqlModule;
-  const wasmPath = import_electron.app.isPackaged ? import_path.default.join(process.resourcesPath, "app.asar.unpacked", "node_modules", "sql.js", "dist", "sql-wasm.wasm") : import_path.default.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm");
+  const candidates = import_electron.app.isPackaged ? [
+    import_path.default.join(process.resourcesPath, "app.asar.unpacked", "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
+    import_path.default.join(import_electron.app.getAppPath(), "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
+    import_path.default.join(process.resourcesPath, "app", "node_modules", "sql.js", "dist", "sql-wasm.wasm")
+  ] : [
+    import_path.default.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm")
+  ];
+  const wasmPath = candidates.find((p) => {
+    try {
+      return import_fs.default.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
+  if (!wasmPath) {
+    throw new Error("sql-wasm.wasm not found in: " + candidates.join(" | "));
+  }
   const wasmBinary = import_fs.default.readFileSync(wasmPath);
   SQL = await initSqlJs({ wasmBinary });
   const dbPath = getDbPath();
