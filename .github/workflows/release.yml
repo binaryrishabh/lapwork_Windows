@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install dependencies
         run: bun install
@@ -165,7 +165,9 @@ jobs:
           VERSION="${{ steps.get_version.outputs.tag }}"
           FILE_NAME="${{ steps.rename_file.outputs.file_name }}"
           FILE_SIZE="${{ steps.rename_file.outputs.size }}"
-
+          
+          echo "Attempting to notify website..."
+          
           curl -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $WEBHOOK_SECRET" \
@@ -174,6 +176,6 @@ jobs:
               \"fileName\": \"$FILE_NAME\",
               \"size\": $FILE_SIZE,
               \"platform\": \"windows\"
-            }"
-
-          echo "Website notified!"
+            }" || echo "⚠️ Website notification failed (website might not be deployed yet)"
+          
+          echo "Website notification step completed"
