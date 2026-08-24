@@ -36,12 +36,44 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Build frontend separately
+        run: bun run build
+
+      - name: Debug - Check app files in release
+        shell: bash
+        run: |
+          echo "=== Checking dist folder ==="
+          ls -la dist/ || echo "dist folder not found!"
+          echo "=== Checking if index.html exists in dist ==="
+          if [ -f "dist/index.html" ]; then
+            echo "✅ index.html found in dist!"
+          else
+            echo "❌ index.html NOT found in dist!"
+          fi
+          echo "=== Checking release folder ==="
+          ls -la release/ || echo "release folder not found!"
+          echo "=== Checking win-unpacked folder (if exists) ==="
+          if [ -d "release/win-unpacked" ]; then
+            echo "win-unpacked exists!"
+            find release/win-unpacked -name "index.html" 2>/dev/null || echo "No index.html in win-unpacked"
+          fi
 
       - name: Build Electron app
         run: bun run dist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Debug - Check dist folder
+        shell: bash
+        run: |
+          echo "=== Checking dist folder ==="
+          ls -la dist/ || echo "dist folder not found!"
+          echo "=== Checking electron folder ==="
+          ls -la electron/ || echo "electron folder not found!"
+          echo "=== Checking if index.html exists ==="
+          find . -name "index.html" 2>/dev/null || echo "index.html not found!"
 
       - name: Rename installer files
         id: rename_file

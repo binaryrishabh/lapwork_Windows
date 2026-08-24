@@ -120,10 +120,9 @@ async function initDatabase() {
   let wasmBinary = null;
   let wasmFound = false;
   const candidates = import_electron.app.isPackaged ? [
-    import_path.default.join(import_path.default.dirname(import_electron.app.getPath("exe")), "resources", "sql-wasm.wasm"),
     import_path.default.join(process.resourcesPath, "sql-wasm.wasm"),
     import_path.default.join(process.resourcesPath, "app.asar.unpacked", "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
-    import_path.default.join(process.resourcesPath, "app", "node_modules", "sql.js", "dist", "sql-wasm.wasm")
+    import_path.default.join(import_path.default.dirname(import_electron.app.getPath("exe")), "resources", "sql-wasm.wasm")
   ] : [
     import_path.default.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm")
   ];
@@ -532,16 +531,19 @@ async function createMiniWindow() {
       preload: import_path.default.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      webSecurity: false,
+      allowRunningInsecureContent: false
     }
   });
   miniWindow = win;
   attachRenderGuards(win);
   const isDev = !import_electron.app.isPackaged;
-  if (isDev)
+  if (isDev) {
     win.loadURL("http://localhost:5173/mini.html");
-  else
+  } else {
     win.loadFile(import_path.default.join(__dirname, "..", "dist", "mini.html"));
+  }
   win.once("ready-to-show", () => {
     const display = import_electron.screen.getDisplayNearestPoint(import_electron.screen.getCursorScreenPoint());
     const { x, y, width, height } = display.workArea;
@@ -569,7 +571,9 @@ function createWindow() {
     webPreferences: {
       preload: import_path.default.join(__dirname, "preload.js"),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webSecurity: false,
+      allowRunningInsecureContent: false
     }
   });
   attachRenderGuards(mainWindow);
@@ -577,8 +581,9 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools({ mode: "detach" });
-  } else
+  } else {
     mainWindow.loadFile(import_path.default.join(__dirname, "..", "dist", "index.html"));
+  }
   mainWindow.once("ready-to-show", () => {
     mainWindow?.maximize();
     mainWindow?.show();
