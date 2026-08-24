@@ -36,7 +36,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-      
+
       - name: Build frontend separately
         run: bun run build
 
@@ -135,7 +135,7 @@ jobs:
         env:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT  }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
           # Create upload script
           cat > upload-to-r2.mjs << 'EOF'
