@@ -82,7 +82,7 @@ jobs:
             cp "$BLOCKMAP_FILE" "$NEW_BLOCKMAP_PATH"
             echo "Blockmap renamed to: $NEW_BLOCKMAP_NAME"
           fi
-          
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -103,24 +103,58 @@ jobs:
         env:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT  }}
         run: |
-          # Install AWS CLI
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          ./aws/install
+          # Create upload script
+          cat > upload-to-r2.mjs << 'EOF'
+          import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+          import { readFileSync } from "fs";
 
-          # Configure AWS CLI for R2
-          aws configure set aws_access_key_id "$R2_ACCESS_KEY_ID"
-          aws configure set aws_secret_access_key "$R2_SECRET_ACCESS_KEY"
-          aws configure set region "auto"
+          const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+          const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+          const R2_ENDPOINT = process.env.R2_ENDPOINT;
+          const FILE_PATH = process.argv[2];
+          const FILE_NAME = process.argv[3];
 
-          # Upload to R2
-          aws s3 cp "${{ steps.rename_file.outputs.file_path }}" \
-            "s3://lapwork-releases/${{ steps.rename_file.outputs.file_name }}" \
-            --endpoint-url "$R2_ENDPOINT"
+          if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+            console.error("Missing R2 credentials");
+            process.exit(1);
+          }
 
-          echo "Uploaded to R2 successfully!"
+          const s3Client = new S3Client({
+            region: "auto",
+            endpoint: R2_ENDPOINT,
+            credentials: {
+              accessKeyId: R2_ACCESS_KEY_ID,
+              secretAccessKey: R2_SECRET_ACCESS_KEY,
+            },
+          });
+
+          try {
+            const fileContent = readFileSync(FILE_PATH);
+            
+            const command = new PutObjectCommand({
+              Bucket: "lapwork-releases",
+              Key: FILE_NAME,
+              Body: fileContent,
+              ContentType: "application/octet-stream",
+            });
+
+            const response = await s3Client.send(command);
+            console.log(`✅ Uploaded ${FILE_NAME} to R2 successfully!`);
+            console.log(`   Size: ${fileContent.length} bytes`);
+            console.log(`   ETag: ${response.ETag}`);
+          } catch (error) {
+            console.error("❌ Upload failed:", error);
+            process.exit(1);
+          }
+          EOF
+
+          # Install AWS SDK
+          bun add @aws-sdk/client-s3
+
+          # Upload file
+          bun upload-to-r2.mjs "${{ steps.rename_file.outputs.file_path }}" "${{ steps.rename_file.outputs.file_name }}"
 
       - name: Notify Website
         shell: bash
