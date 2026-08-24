@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-and-release:
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: bun install
@@ -43,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Find and rename installer
+      - name: Rename installer files
         id: rename_file
         shell: bash
         run: |
@@ -73,7 +73,16 @@ jobs:
           # Get file size
           FILE_SIZE=$(stat -c%s "$NEW_PATH")
           echo "size=$FILE_SIZE" >> $GITHUB_OUTPUT
-
+          
+          # Also rename blockmap file if exists
+          BLOCKMAP_FILE=$(find release -maxdepth 1 -name "*.blockmap" | head -n 1)
+          if [ -n "$BLOCKMAP_FILE" ]; then
+            NEW_BLOCKMAP_NAME="lapwork.Setup.${VERSION}.exe.blockmap"
+            NEW_BLOCKMAP_PATH="release/${NEW_BLOCKMAP_NAME}"
+            cp "$BLOCKMAP_FILE" "$NEW_BLOCKMAP_PATH"
+            echo "Blockmap renamed to: $NEW_BLOCKMAP_NAME"
+          fi
+          
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -82,8 +91,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            release/*.exe
-            release/*.blockmap
+            release/*.Setup.*.exe
+            release/*.Setup.*.exe.blockmap
             release/latest.yml
           generate_release_notes: true
         env:
@@ -100,17 +109,17 @@ jobs:
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
           ./aws/install
-          
+
           # Configure AWS CLI for R2
           aws configure set aws_access_key_id "$R2_ACCESS_KEY_ID"
           aws configure set aws_secret_access_key "$R2_SECRET_ACCESS_KEY"
           aws configure set region "auto"
-          
+
           # Upload to R2
           aws s3 cp "${{ steps.rename_file.outputs.file_path }}" \
             "s3://lapwork-releases/${{ steps.rename_file.outputs.file_name }}" \
             --endpoint-url "$R2_ENDPOINT"
-          
+
           echo "Uploaded to R2 successfully!"
 
       - name: Notify Website
@@ -122,7 +131,7 @@ jobs:
           VERSION="${{ steps.get_version.outputs.tag }}"
           FILE_NAME="${{ steps.rename_file.outputs.file_name }}"
           FILE_SIZE="${{ steps.rename_file.outputs.size }}"
-          
+
           curl -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $WEBHOOK_SECRET" \
@@ -132,5 +141,5 @@ jobs:
               \"size\": $FILE_SIZE,
               \"platform\": \"windows\"
             }"
-          
+
           echo "Website notified!"
