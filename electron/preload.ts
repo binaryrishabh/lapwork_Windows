@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
   getAppVersion: () => "1.0.0",
-  getPlatform: () => process.platform,
 
   // Global shortcuts
   onGlobalShortcut: (callback: (key: string) => void) => {

@@ -1,6 +1,6 @@
 {
   "name": "lapwork",
-  "version": "2.3.5",
+  "version": "2.3.6",
   "description": "lapwork - personal productivity tracker",
   "main": "electron/main.js",
   "type": "commonjs",
