@@ -1,0 +1,136 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Get version from package.json
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Electron app
+        run: bun run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find and rename installer
+        id: rename_file
+        shell: bash
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          
+          # Find the .exe file (not blockmap)
+          EXE_FILE=$(find release -maxdepth 1 -name "*.exe" ! -name "*.blockmap" | head -n 1)
+          
+          if [ -z "$EXE_FILE" ]; then
+            echo "ERROR: No .exe file found!"
+            exit 1
+          fi
+          
+          echo "Found installer: $EXE_FILE"
+          
+          # Create new name with dots
+          NEW_NAME="lapwork.Setup.${VERSION}.exe"
+          NEW_PATH="release/${NEW_NAME}"
+          
+          # Copy to new name
+          cp "$EXE_FILE" "$NEW_PATH"
+          
+          echo "Renamed to: $NEW_NAME"
+          echo "file_name=$NEW_NAME" >> $GITHUB_OUTPUT
+          echo "file_path=$NEW_PATH" >> $GITHUB_OUTPUT
+          
+          # Get file size
+          FILE_SIZE=$(stat -c%s "$NEW_PATH")
+          echo "size=$FILE_SIZE" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: "LapWork v${{ steps.get_version.outputs.version }}"
+          draft: false
+          prerelease: false
+          files: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Cloudflare R2
+        shell: bash
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          # Install AWS CLI
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+          
+          # Configure AWS CLI for R2
+          aws configure set aws_access_key_id "$R2_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$R2_SECRET_ACCESS_KEY"
+          aws configure set region "auto"
+          
+          # Upload to R2
+          aws s3 cp "${{ steps.rename_file.outputs.file_path }}" \
+            "s3://lapwork-releases/${{ steps.rename_file.outputs.file_name }}" \
+            --endpoint-url "$R2_ENDPOINT"
+          
+          echo "Uploaded to R2 successfully!"
+
+      - name: Notify Website
+        shell: bash
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBSITE_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+        run: |
+          VERSION="${{ steps.get_version.outputs.tag }}"
+          FILE_NAME="${{ steps.rename_file.outputs.file_name }}"
+          FILE_SIZE="${{ steps.rename_file.outputs.size }}"
+          
+          curl -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $WEBHOOK_SECRET" \
+            -d "{
+              \"version\": \"$VERSION\",
+              \"fileName\": \"$FILE_NAME\",
+              \"size\": $FILE_SIZE,
+              \"platform\": \"windows\"
+            }"
+          
+          echo "Website notified!"
