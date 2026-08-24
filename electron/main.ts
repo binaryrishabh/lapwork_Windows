@@ -667,7 +667,7 @@ async function createMiniWindow() {
     roundedCorners: true,
     icon: getIconPath(),
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(app.getAppPath(), "electron", "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // ← ADD THIS LINE
@@ -718,7 +718,7 @@ function createWindow() {
     backgroundColor: "#0f0f0f",
     icon: getIconPath(),
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(app.getAppPath(), "electron", "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // ← ADD THIS LINE
@@ -750,13 +750,22 @@ function createWindow() {
     createMiniWindow();
     mainWindow?.hide();
   });
-
+  
   mainWindow.on("close", (event) => {
     if (!app.isQuitting) {
       event.preventDefault();
       safeSend(mainWindow, "before-close");
+
+      // FORCE QUIT FALLBACK: If renderer is dead, force close after 3 seconds
+      setTimeout(() => {
+        if (!app.isQuitting) {
+          app.isQuitting = true;
+          app.quit();
+        }
+      }, 3000);
     }
   });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
