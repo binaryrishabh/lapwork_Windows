@@ -1,4 +1,3 @@
-
 import path from 'path';
 import { fileURLToPath } from 'url';
 import react from '@vitejs/plugin-react';
@@ -8,14 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
-  root: 'src',
+  root: path.resolve(__dirname, 'src'),
   base: './',
   build: {
-    outDir: '../dist',
+    outDir: path.resolve(__dirname, 'dist'),
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        // Explicitly point to the src folder using absolute paths
         main: path.resolve(__dirname, 'src/index.html'),
         mini: path.resolve(__dirname, 'src/mini.html'),
       },

@@ -8,7 +8,8 @@
     "build:electron": "bun build electron/main.ts --outfile=electron/main.js --target=node --format=cjs --packages external && bun build electron/preload.ts --outfile=electron/preload.js --target=node --format=cjs --packages external",
     "dev": "bun run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "start": "bun run build:electron && electron .",
-    "dist": "bun run build:electron && vite build && electron-builder"
+    "dist": "bun run build:electron && bun run build && electron-builder",
+    "build": "vite build"
   },
   "keywords": [],
   "author": "binaryrishabh",
