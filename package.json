@@ -45,8 +45,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json",
-      "build/icon.ico"
+      "package.json"
     ],
     "win": {
       "target": "nsis",
@@ -70,14 +69,10 @@
       {
         "from": "node_modules/sql.js/dist/sql-wasm.wasm",
         "to": "sql-wasm.wasm"
-      },
-      {
-        "from": "build/icon.ico",
-        "to": "icon.ico"
       }
     ],
     "asarUnpack": [
-      "**/node_modules/sql.js/dist/**"
+      "node_modules/sql.js/dist/**/*"
     ]
   }
 }

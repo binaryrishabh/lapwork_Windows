@@ -137,39 +137,35 @@ async function initDatabase() {
   let wasmFound = false;
 
   const candidates = app.isPackaged
-  ? [
-      // PRIMARY: where extraResources puts it
-      path.join(path.dirname(app.getPath("exe")), "resources", "sql-wasm.wasm"),
-      
-      // FALLBACKS
-      path.join(process.resourcesPath, "sql-wasm.wasm"),
-      path.join(
-        process.resourcesPath,
-        "app.asar.unpacked",
-        "node_modules",
-        "sql.js",
-        "dist",
-        "sql-wasm.wasm",
-      ),
-      path.join(
-        process.resourcesPath,
-        "app",
-        "node_modules",
-        "sql.js",
-        "dist",
-        "sql-wasm.wasm",
-      ),
-    ]
-  : [
-      path.join(
-        __dirname,
-        "..",
-        "node_modules",
-        "sql.js",
-        "dist",
-        "sql-wasm.wasm",
-      ),
-    ];
+    ? [
+        // PRIMARY: where extraResources puts it
+        path.join(process.resourcesPath, "sql-wasm.wasm"),
+        // FALLBACK: unpacked location
+        path.join(
+          process.resourcesPath,
+          "app.asar.unpacked",
+          "node_modules",
+          "sql.js",
+          "dist",
+          "sql-wasm.wasm",
+        ),
+        // LEGACY FALLBACK
+        path.join(
+          path.dirname(app.getPath("exe")),
+          "resources",
+          "sql-wasm.wasm",
+        ),
+      ]
+    : [
+        path.join(
+          __dirname,
+          "..",
+          "node_modules",
+          "sql.js",
+          "dist",
+          "sql-wasm.wasm",
+        ),
+      ];
 
   for (const p of candidates) {
     try {
@@ -675,9 +671,13 @@ async function createMiniWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false,
+      webSecurity: false,
+      allowRunningInsecureContent: false,
     },
   });
+
   miniWindow = win;
+
   attachRenderGuards(win);
 
   const isDev = !app.isPackaged;
@@ -717,8 +717,11 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: false,
+      allowRunningInsecureContent: false,
     },
   });
+
   attachRenderGuards(mainWindow);
 
   const isDev = !app.isPackaged;
