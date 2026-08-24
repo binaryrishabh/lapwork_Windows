@@ -684,18 +684,7 @@ async function createMiniWindow() {
   if (isDev) {
     win.loadURL("http://localhost:5173/mini.html");
   } else {
-    const miniPath = path.join(__dirname, "..", "dist", "mini.html");
-
-    if (!fs.existsSync(miniPath)) {
-      dialog.showErrorBox(
-        "lapwork",
-        "Mini window files not found. Please reinstall the application.",
-      );
-      app.quit();
-      return;
-    }
-
-    win.loadFile(miniPath);
+    win.loadFile(path.join(__dirname, "..", "dist", "mini.html"));
   }
 
   win.once("ready-to-show", () => {
@@ -743,19 +732,7 @@ function createWindow() {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
-    const indexPath = path.join(__dirname, "..", "dist", "index.html");
-
-    // Check if file exists before loading
-    if (!fs.existsSync(indexPath)) {
-      dialog.showErrorBox(
-        "lapwork",
-        "App files not found. Please reinstall the application.",
-      );
-      app.quit();
-      return;
-    }
-
-    mainWindow.loadFile(indexPath);
+    mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
 
   mainWindow.once("ready-to-show", () => {
