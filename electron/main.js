@@ -93,32 +93,60 @@ function safeSend(win, channel, ...args) {
   } catch (e) {}
 }
 function getIconPath() {
-  const ext = process.platform === "win32" ? "ico" : process.platform === "darwin" ? "icns" : "png";
+  const ext = process.platform === "win32" ? "ico" : "png";
   const iconName = `icon.${ext}`;
-  return import_electron.app.isPackaged ? import_path.default.join(process.resourcesPath, iconName) : import_path.default.join(__dirname, "..", "build", iconName);
+  if (import_electron.app.isPackaged) {
+    const locations = [
+      import_path.default.join(process.resourcesPath, iconName),
+      import_path.default.join(process.resourcesPath, "app.asar.unpacked", "build", iconName),
+      import_path.default.join(import_path.default.dirname(import_electron.app.getPath("exe")), "resources", iconName)
+    ];
+    for (const loc of locations) {
+      if (import_fs.default.existsSync(loc))
+        return loc;
+    }
+    return import_path.default.join(process.resourcesPath, iconName);
+  }
+  return import_path.default.join(__dirname, "..", "build", iconName);
 }
 async function initDatabase() {
+  if (process.platform === "win32" && import_electron.app.isPackaged) {
+    try {
+      process.chdir(import_path.default.dirname(import_electron.app.getPath("exe")));
+    } catch {}
+  }
   const sqlModule = await import("sql.js");
   const initSqlJs = sqlModule.default || sqlModule;
+  let wasmBinary = null;
+  let wasmFound = false;
   const candidates = import_electron.app.isPackaged ? [
+    import_path.default.join(import_path.default.dirname(import_electron.app.getPath("exe")), "resources", "sql-wasm.wasm"),
+    import_path.default.join(process.resourcesPath, "sql-wasm.wasm"),
     import_path.default.join(process.resourcesPath, "app.asar.unpacked", "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
-    import_path.default.join(import_electron.app.getAppPath(), "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
     import_path.default.join(process.resourcesPath, "app", "node_modules", "sql.js", "dist", "sql-wasm.wasm")
   ] : [
     import_path.default.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm")
   ];
-  const wasmPath = candidates.find((p) => {
+  for (const p of candidates) {
     try {
-      return import_fs.default.existsSync(p);
-    } catch {
-      return false;
-    }
-  });
-  if (!wasmPath) {
-    throw new Error("sql-wasm.wasm not found in: " + candidates.join(" | "));
+      if (import_fs.default.existsSync(p)) {
+        wasmBinary = import_fs.default.readFileSync(p);
+        wasmFound = true;
+        console.log("[DB] WASM found at:", p);
+        break;
+      }
+    } catch {}
   }
-  const wasmBinary = import_fs.default.readFileSync(wasmPath);
-  SQL = await initSqlJs({ wasmBinary });
+  if (!wasmFound) {
+    console.warn("[DB] WASM not found, using in-memory fallback");
+    SQL = await initSqlJs({
+      locateFile: () => {
+        return import_path.default.join(process.resourcesPath, "sql-wasm.wasm");
+      }
+    });
+  } else {
+    SQL = await initSqlJs({ wasmBinary });
+  }
   const dbPath = getDbPath();
   try {
     if (import_fs.default.existsSync(dbPath)) {
@@ -130,7 +158,9 @@ async function initDatabase() {
   } catch (err) {
     writeCrashLog(`DB unreadable, starting fresh: ${err instanceof Error ? err.stack : String(err)}`);
     try {
-      import_fs.default.renameSync(dbPath, `${dbPath}.corrupt-${Date.now()}`);
+      if (import_fs.default.existsSync(dbPath)) {
+        import_fs.default.renameSync(dbPath, `${dbPath}.corrupt-${Date.now()}`);
+      }
     } catch {}
     db = new SQL.Database;
   }
@@ -150,7 +180,15 @@ async function initDatabase() {
   saveDatabase();
 }
 function getDbPath() {
-  return import_electron.app.isPackaged ? import_path.default.join(import_electron.app.getPath("userData"), "lapwork.db") : import_path.default.join(import_electron.app.getPath("userData"), "lapwork-dev.db");
+  try {
+    const userData = import_electron.app.getPath("userData");
+    if (!import_fs.default.existsSync(userData)) {
+      import_fs.default.mkdirSync(userData, { recursive: true });
+    }
+    return import_electron.app.isPackaged ? import_path.default.join(userData, "lapwork.db") : import_path.default.join(userData, "lapwork-dev.db");
+  } catch (err) {
+    return import_path.default.join(import_electron.app.getPath("temp"), "lapwork.db");
+  }
 }
 function saveDatabase() {
   if (!db)

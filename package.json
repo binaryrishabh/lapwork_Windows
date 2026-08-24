@@ -8,8 +8,7 @@
     "build:electron": "bun build electron/main.ts --outfile=electron/main.js --target=node --format=cjs --packages external && bun build electron/preload.ts --outfile=electron/preload.js --target=node --format=cjs --packages external",
     "dev": "bun run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "start": "bun run build:electron && electron .",
-    "dist": "dotenv -e .env -- bun run build:electron && vite build && electron-builder",
-    "publish": "dotenv -e .env -- bun run build:electron && vite build && electron-builder --publish always"
+    "dist": "bun run build:electron && vite build && electron-builder"
   },
   "keywords": [],
   "author": "binaryrishabh",
@@ -29,26 +28,25 @@
     "@types/react-dom": "^18.3.0",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.1",
-    "concurrently": "^9.2.4",
+    "concurrently": "^10.0.5",
     "dotenv-cli": "^11.0.0",
     "electron": "^41.5.0",
     "electron-builder": "^26.8.1",
     "typescript": "^7.0.2",
     "vite": "^8.0.10",
-    "wait-on": "^9.0.5"
+    "wait-on": "^9.1.0"
   },
   "build": {
     "appId": "com.lapwork.app",
     "productName": "lapwork",
-    "asar": false,
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "build/**/*",
-      "package.json"
+      "package.json",
+      "build/icon.ico"
     ],
     "win": {
       "target": "nsis",
@@ -69,6 +67,10 @@
       "repo": "lapwork_Windows"
     },
     "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "sql-wasm.wasm"
+      },
       {
         "from": "build/icon.ico",
         "to": "icon.ico"

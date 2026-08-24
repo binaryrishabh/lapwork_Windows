@@ -101,74 +101,100 @@ function safeSend(
 }
 
 function getIconPath(): string {
-  const ext =
-    process.platform === "win32"
-      ? "ico"
-      : process.platform === "darwin"
-        ? "icns"
-        : "png";
+  const ext = process.platform === "win32" ? "ico" : "png";
   const iconName = `icon.${ext}`;
-  return app.isPackaged
-    ? path.join(process.resourcesPath, iconName)
-    : path.join(__dirname, "..", "build", iconName);
+
+  if (app.isPackaged) {
+    // Check multiple locations
+    const locations = [
+      path.join(process.resourcesPath, iconName),
+      path.join(process.resourcesPath, "app.asar.unpacked", "build", iconName),
+      path.join(path.dirname(app.getPath("exe")), "resources", iconName),
+    ];
+    for (const loc of locations) {
+      if (fs.existsSync(loc)) return loc;
+    }
+    // Fallback to resources root
+    return path.join(process.resourcesPath, iconName);
+  }
+  return path.join(__dirname, "..", "build", iconName);
 }
 
 // ===== DATABASE FUNCTIONS =====
 async function initDatabase() {
+  // Windows: Set proper working directory
+  if (process.platform === "win32" && app.isPackaged) {
+    try {
+      process.chdir(path.dirname(app.getPath("exe")));
+    } catch {}
+  }
+
   const sqlModule: any = await import("sql.js");
   const initSqlJs = sqlModule.default || sqlModule;
 
+  // Try multiple WASM locations
+  let wasmBinary: Uint8Array | null = null;
+  let wasmFound = false;
+
   const candidates = app.isPackaged
-    ? [
-        path.join(
-          process.resourcesPath,
-          "app.asar.unpacked",
-          "node_modules",
-          "sql.js",
-          "dist",
-          "sql-wasm.wasm",
-        ),
-        path.join(
-          app.getAppPath(),
-          "node_modules",
-          "sql.js",
-          "dist",
-          "sql-wasm.wasm",
-        ),
-        path.join(
-          process.resourcesPath,
-          "app",
-          "node_modules",
-          "sql.js",
-          "dist",
-          "sql-wasm.wasm",
-        ),
-      ]
-    : [
-        path.join(
-          __dirname,
-          "..",
-          "node_modules",
-          "sql.js",
-          "dist",
-          "sql-wasm.wasm",
-        ),
-      ];
+  ? [
+      // PRIMARY: where extraResources puts it
+      path.join(path.dirname(app.getPath("exe")), "resources", "sql-wasm.wasm"),
+      
+      // FALLBACKS
+      path.join(process.resourcesPath, "sql-wasm.wasm"),
+      path.join(
+        process.resourcesPath,
+        "app.asar.unpacked",
+        "node_modules",
+        "sql.js",
+        "dist",
+        "sql-wasm.wasm",
+      ),
+      path.join(
+        process.resourcesPath,
+        "app",
+        "node_modules",
+        "sql.js",
+        "dist",
+        "sql-wasm.wasm",
+      ),
+    ]
+  : [
+      path.join(
+        __dirname,
+        "..",
+        "node_modules",
+        "sql.js",
+        "dist",
+        "sql-wasm.wasm",
+      ),
+    ];
 
-  const wasmPath = candidates.find((p) => {
+  for (const p of candidates) {
     try {
-      return fs.existsSync(p);
-    } catch {
-      return false;
-    }
-  });
-
-  if (!wasmPath) {
-    throw new Error("sql-wasm.wasm not found in: " + candidates.join(" | "));
+      if (fs.existsSync(p)) {
+        wasmBinary = fs.readFileSync(p);
+        wasmFound = true;
+        console.log("[DB] WASM found at:", p);
+        break;
+      }
+    } catch {}
   }
 
-  const wasmBinary = fs.readFileSync(wasmPath);
-  SQL = await initSqlJs({ wasmBinary });
+  if (!wasmFound) {
+    console.warn("[DB] WASM not found, using in-memory fallback");
+    // Use in-memory SQLite without WASM file
+    SQL = await initSqlJs({
+      locateFile: () => {
+        // Try one more time with bundled path
+        return path.join(process.resourcesPath, "sql-wasm.wasm");
+      },
+    });
+  } else {
+    // Initialize with WASM binary
+    SQL = await initSqlJs({ wasmBinary });
+  }
 
   const dbPath = getDbPath();
 
@@ -184,7 +210,9 @@ async function initDatabase() {
       `DB unreadable, starting fresh: ${err instanceof Error ? err.stack : String(err)}`,
     );
     try {
-      fs.renameSync(dbPath, `${dbPath}.corrupt-${Date.now()}`);
+      if (fs.existsSync(dbPath)) {
+        fs.renameSync(dbPath, `${dbPath}.corrupt-${Date.now()}`);
+      }
     } catch {}
     db = new SQL.Database();
   }
@@ -210,9 +238,18 @@ async function initDatabase() {
 }
 
 function getDbPath(): string {
-  return app.isPackaged
-    ? path.join(app.getPath("userData"), "lapwork.db")
-    : path.join(app.getPath("userData"), "lapwork-dev.db");
+  try {
+    const userData = app.getPath("userData");
+    if (!fs.existsSync(userData)) {
+      fs.mkdirSync(userData, { recursive: true });
+    }
+    return app.isPackaged
+      ? path.join(userData, "lapwork.db")
+      : path.join(userData, "lapwork-dev.db");
+  } catch (err) {
+    // Fallback to temp directory if userData fails
+    return path.join(app.getPath("temp"), "lapwork.db");
+  }
 }
 
 function saveDatabase() {

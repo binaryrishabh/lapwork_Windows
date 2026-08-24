@@ -6,16 +6,10 @@
 /* ── DARK (default) ─────────────────────────────────────────────────────── */
 :root {
   /* Brand */
-  /* --primary: #413AB4;
+  --primary: #413AB4;
   --primary-hover: #5549D4;
   --primary-glow: #7B73E0;
-  --primary-soft: rgba(65, 58, 180, 0.14); */
-
-  /* Brand — TEMP RED for updater test */
-  --primary: #C22F2F;
-  --primary-hover: #D94444;
-  --primary-glow: #E57676;
-  --primary-soft: rgba(194, 47, 47, 0.14);
+  --primary-soft: rgba(65, 58, 180, 0.14);
 
   /* Surfaces */
   --bg-base: #0A0A12;
