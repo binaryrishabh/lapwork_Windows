@@ -684,7 +684,7 @@ async function createMiniWindow() {
   if (isDev) {
     win.loadURL("http://localhost:5173/mini.html");
   } else {
-    win.loadFile(path.join(__dirname, "..", "dist", "mini.html"));
+    win.loadFile(path.join(app.getAppPath(), "dist", "mini.html"));
   }
 
   win.once("ready-to-show", () => {
@@ -732,7 +732,7 @@ function createWindow() {
     mainWindow.loadURL("http://localhost:5173");
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
-    mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    mainWindow.loadFile(path.join(app.getAppPath(), "dist", "index.html"));
   }
 
   mainWindow.once("ready-to-show", () => {

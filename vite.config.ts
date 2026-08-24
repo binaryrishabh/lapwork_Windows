@@ -10,7 +10,7 @@ export default defineConfig({
   root: 'src',
   base: './',
   build: {
-    outDir: '../dist',
+    outDir: path.resolve(__dirname, 'dist'), // ABSOLUTE PATH
     emptyOutDir: true,
     rollupOptions: {
       input: {

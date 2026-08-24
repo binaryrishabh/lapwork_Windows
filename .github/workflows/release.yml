@@ -65,6 +65,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check asar contents
+        shell: bash
+        run: |
+          cd release/win-unpacked/resources
+          npx asar list app.asar | grep "index.html" || echo "❌ index.html NOT in asar!"
+
       - name: Debug - Check dist folder
         shell: bash
         run: |
